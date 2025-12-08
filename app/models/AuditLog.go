@@ -11,26 +11,27 @@ import (
 type ActionType string
 
 const (
-	ActionBanPlayer        ActionType = "ban_player"
-	ActionTempBanPlayer    ActionType = "tempban_player"
-	ActionKickPlayer       ActionType = "kick_player"
-	ActionUnbanPlayer      ActionType = "unban_player"
-	ActionRconCommand      ActionType = "rcon_command"
-	ActionRoleAssign       ActionType = "role_assign"
-	ActionRoleRevoke       ActionType = "role_revoke"
-	ActionGroupAssign      ActionType = "group_assign"
-	ActionPermissionGrant  ActionType = "permission_grant"
-	ActionPermissionRevoke ActionType = "permission_revoke"
-	ActionUserApprove      ActionType = "user_approve"
-	ActionUserReject       ActionType = "user_reject"
-	ActionCommandCreate    ActionType = "command_create"
-	ActionCommandUpdate    ActionType = "command_update"
-	ActionCommandDelete    ActionType = "command_delete"
-	ActionReportReview     ActionType = "report_review"
-	ActionReportDismiss    ActionType = "report_dismiss"
-	ActionLogin            ActionType = "login"
-	ActionLogout           ActionType = "logout"
-	ActionLoginFailed      ActionType = "login_failed"
+	ActionBanPlayer         ActionType = "ban_player"
+	ActionTempBanPlayer     ActionType = "tempban_player"
+	ActionKickPlayer        ActionType = "kick_player"
+	ActionUnbanPlayer       ActionType = "unban_player"
+	ActionRconCommand       ActionType = "rcon_command"
+	ActionRoleAssign        ActionType = "role_assign"
+	ActionRoleRevoke        ActionType = "role_revoke"
+	ActionGroupAssign       ActionType = "group_assign"
+	ActionPermissionGrant   ActionType = "permission_grant"
+	ActionPermissionRevoke  ActionType = "permission_revoke"
+	ActionUserApprove       ActionType = "user_approve"
+	ActionUserReject        ActionType = "user_reject"
+	ActionCommandCreate     ActionType = "command_create"
+	ActionCommandUpdate     ActionType = "command_update"
+	ActionCommandDelete     ActionType = "command_delete"
+	ActionReportReview      ActionType = "report_review"
+	ActionReportDismiss     ActionType = "report_dismiss"
+	ActionLogin             ActionType = "login"
+	ActionLogout            ActionType = "logout"
+	ActionLoginFailed       ActionType = "login_failed"
+	ActionSecurityViolation ActionType = "security_violation"
 )
 
 // ActionSource represents where the action was initiated
@@ -59,7 +60,7 @@ type AuditLog struct {
 	// Action details
 	Action       ActionType   `gorm:"type:varchar(50);not null;index" json:"action"`
 	Source       ActionSource `gorm:"type:varchar(20);not null;index" json:"source"`
-	Success      bool         `gorm:"default:true;index" json:"success"`
+	Success      bool         `gorm:"index" json:"success"`
 	ErrorMessage string       `gorm:"type:text" json:"errorMessage,omitempty"`
 
 	// Target information

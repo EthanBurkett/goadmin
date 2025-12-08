@@ -145,8 +145,22 @@ func actionReport(api *Api) gin.HandlerFunc {
 				return
 			}
 
+			// Check for ban loop abuse (5 bans in 15 minutes)
+			banLoopResult, err := models.BanLoopDetectorInstance.CheckCircularBan(
+				report.ReportedGUID, &uid, 15*time.Minute, 5)
+			if err == nil && banLoopResult.IsAbuse {
+				// Log warning but allow the ban to proceed
+				Audit.LogAction(c, models.ActionSecurityViolation, models.SourceWebUI, false,
+					banLoopResult.Reason, "ban_loop", report.ReportedGUID, report.ReportedName,
+					map[string]interface{}{
+						"recent_ban_count": banLoopResult.RecentBanCount,
+						"time_window":      banLoopResult.TimeWindow.String(),
+						"admin_id":         uid,
+					}, "Potential ban loop abuse detected")
+			}
+
 			duration := time.Duration(*req.Duration) * time.Hour
-			_, err := models.CreateTempBan(report.ReportedName, report.ReportedGUID, req.Reason, duration, &uid)
+			_, err = models.CreateTempBan(report.ReportedName, report.ReportedGUID, req.Reason, duration, &uid)
 			if err != nil {
 				Audit.LogTempBan(c, report.ReportedName, report.ReportedGUID, req.Reason, *req.Duration, false, err.Error())
 				c.Set("error", "Failed to create temporary ban")

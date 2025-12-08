@@ -63,21 +63,34 @@ This document tracks major improvements and refactoring tasks for GoAdmin.
   - [x] ✅ Raw command
   - [x] ✅ Arguments
   - [x] ✅ Result/output
-- [ ] Role/permission changes
-  - [ ] Who changed what
-  - [ ] Before/after state
+- [x] ✅ Role/permission changes
+  - [x] ✅ Role assignments/removals
+  - [x] ✅ User approval/rejection
 - [ ] Group assignments
 - [ ] Custom command creation/modification/deletion
-- [ ] User approval/rejection
-- [ ] Login/logout events
+- [x] ✅ User approval/rejection
+- [x] ✅ Login/logout events
+  - [x] ✅ Successful logins
+  - [x] ✅ Failed login attempts
+  - [x] ✅ Logout events
 - [x] ✅ Report submissions and actions
+- [x] ✅ Security violations
+  - [x] ✅ Invalid command attempts
+  - [x] ✅ Restricted command attempts
+  - [x] ✅ Command injection attempts
 
 ### Audit UI & Reporting
 
-- [ ] Create audit log viewer in web dashboard
-  - [ ] Filter by user, action type, date range
-  - [ ] Search functionality
-  - [ ] Export to CSV/JSON
+- [x] ✅ Create audit log viewer in web dashboard
+  - [x] ✅ Filter by user, action type, date range, source, success status
+  - [x] ✅ Search functionality
+  - [x] ✅ Export to CSV/JSON
+  - [x] ✅ Pagination support
+- [x] ✅ Audit log API endpoints
+  - [x] ✅ GET /audit/logs with filters
+  - [x] ✅ GET /audit/logs/recent
+  - [x] ✅ GET /audit/logs/user/:userId
+  - [x] ✅ GET /audit/logs/action/:action
 - [ ] Real-time audit log streaming (optional WebSocket)
 - [ ] Audit log retention policy configuration
 - [ ] Audit log archiving system
@@ -89,15 +102,16 @@ This document tracks major improvements and refactoring tasks for GoAdmin.
 - [x] ✅ Implement command sandboxing
   - [x] ✅ Validate command syntax before execution
   - [x] ✅ Block dangerous command patterns
-  - [x] ✅ Whitelist/blacklist system for commands
+  - [x] ✅ Disallow list system for commands (killserver, quit, plugins, etc.)
 - [x] ✅ Command validation layer
   - [x] ✅ Argument type checking
   - [x] ✅ Argument sanitization
-  - [x] ✅ Maximum argument length limits
+  - [x] ✅ Maximum argument length limits (500 chars)
+  - [x] ✅ Maximum argument count limits (20 args)
 - [x] ✅ Command execution limits
   - [x] ✅ Max concurrent executions (via rate limiting)
-  - [ ] Timeout for long-running commands
-  - [x] ✅ Prevent command injection
+  - [x] ✅ Timeout for long-running commands (5s default, configurable, context-aware)
+  - [x] ✅ Prevent command injection (blocked patterns, metacharacter filtering)
 
 ### Rate Limiting System
 
@@ -121,11 +135,18 @@ This document tracks major improvements and refactoring tasks for GoAdmin.
 ### Command Abuse Prevention
 
 - [x] ✅ Detect spam patterns (via rate limiting)
-- [ ] Detect ban loops
-  - [ ] Prevent rapid ban/unban cycles
-  - [ ] Detect circular ban attempts
-- [ ] Command throttling per target
-  - [ ] Prevent one user from being targeted repeatedly
+  - [x] ✅ Token bucket algorithm prevents identical/similar commands in quick succession
+- [x] ✅ Command deduplication
+  - [x] ✅ Prevent duplicate command execution from CoD4's dual log entries (say/sayteam)
+  - [x] ✅ 2-second deduplication window per player
+- [x] ✅ Detect ban loops
+  - [x] ✅ Prevent rapid ban/unban cycles (5 bans in 15 min threshold)
+  - [x] ✅ Detect circular ban attempts (admin repeatedly banning same player)
+  - [x] ✅ Track ban pattern statistics (suspicion scoring)
+  - [x] ✅ Log security violations for ban loop abuse
+- [x] ✅ Command throttling per target
+  - [x] ✅ Prevent one admin from targeting same player too frequently (30s cooldown)
+  - [x] ✅ Track target statistics per admin
 - [ ] Emergency shutdown triggers
   - [ ] Auto-disable commands on abuse detection
   - [ ] Alert super admins
@@ -316,25 +337,42 @@ This document tracks major improvements and refactoring tasks for GoAdmin.
 - `app/models/CommandHistory.go`
 - `app/models/Group.go`
 
+### ✅ Phase 2: Audit Logging System - COMPLETED
+
 **Audit Logging System**
 
-- ✅ Created comprehensive `AuditLog` model with 20+ action types
+- ✅ Created comprehensive `AuditLog` model with 22 action types
 - ✅ Implemented audit helper functions for common actions
 - ✅ Added audit logging to ban/tempban/kick actions (web UI + in-game)
 - ✅ Added audit logging to all RCON command executions
+- ✅ Added audit logging to authentication events (login/logout/failures)
+- ✅ Added audit logging to RBAC changes (role assignment/removal)
+- ✅ Added audit logging to user approval/rejection
+- ✅ Added audit logging to security violations
 - ✅ Registered AuditLog in database migrations
+- ✅ Created audit log API endpoints with filtering
+- ✅ Created audit log viewer UI in dashboard
 
 **Files Created:**
 
-- `app/models/AuditLog.go` (200+ lines)
-- `app/rest/audit_helper.go` (150+ lines)
+- `app/models/AuditLog.go` (194+ lines)
+- `app/rest/audit_helper.go` (187+ lines)
+- `app/rest/audit.go` (190+ lines)
+- `frontend/src/hooks/useAudit.ts` (130+ lines)
+- `frontend/src/pages/audit.tsx` (350+ lines)
 
 **Files Modified:**
 
-- `app/main.go` (added AuditLog to migrations)
+- `app/main.go` (added AuditLog to migrations, registered audit routes)
 - `app/rest/reports.go` (added audit logging for bans)
 - `app/commands/moderation.go` (added audit logging for in-game tempban)
-- `app/rest/rcon.go` (added audit logging for RCON commands)
+- `app/rest/rcon.go` (added audit logging for RCON commands and security violations)
+- `app/rest/auth.go` (added audit logging for authentication events)
+- `app/rest/rbac.go` (added audit logging for RBAC changes)
+- `frontend/src/components/DashboardLayout.tsx` (added audit logs nav item)
+- `frontend/routes.tsx` (audit route auto-generated)
+
+### ✅ Phase 3: Security & Rate Limiting - COMPLETED
 
 **Rate Limiting Infrastructure**
 
@@ -347,27 +385,77 @@ This document tracks major improvements and refactoring tasks for GoAdmin.
 
 - `app/rest/rate_limiter.go` (170+ lines)
 
-**Files Modified:**
-
-- `app/rest/rcon.go` (added rate limiting middleware)
-- `app/rest/auth.go` (added rate limiting middleware)
-
 **Command Validation & Sandboxing**
 
 - ✅ Created comprehensive RCON command validator
-- ✅ Whitelist of 20+ allowed commands
-- ✅ Blocked patterns for dangerous operations
+- ✅ Changed from allowlist to disallowlist (blocks: quit, killserver, plugins, devmap, etc.)
+- ✅ Blocked patterns for dangerous operations (command injection, password exposure)
 - ✅ Command sanitization (null bytes, whitespace, injection)
-- ✅ Length and argument count limits
+- ✅ Length and argument count limits (500 chars, 20 args max)
 - ✅ Applied validation to all RCON command executions
+- ✅ Security violations logged to audit trail
 
 **Files Created:**
 
-- `app/rest/command_validator.go` (190+ lines)
+- `app/rest/command_validator.go` (125+ lines)
 
 **Files Modified:**
 
-- `app/rest/rcon.go` (integrated command validation)
+- `app/rest/rcon.go` (integrated command validation, rate limiting, audit logging)
+- `app/rest/auth.go` (added rate limiting middleware)
+
+### ✅ Phase 4: Command Abuse Prevention - COMPLETED
+
+**Command Deduplication**
+
+- ✅ Prevents duplicate command execution from CoD4's dual log entries (say/sayteam)
+- ✅ 2-second deduplication window per player
+- ✅ Thread-safe with automatic cleanup
+
+**Files Modified:**
+
+- `app/commands/handler.go` (added deduplication logic, recent command tracking)
+
+**Ban Loop Detection**
+
+- ✅ Detects rapid ban/unban cycles (5 bans in 15 min threshold)
+- ✅ Detects circular ban attempts (admin repeatedly banning same player)
+- ✅ Tracks ban pattern statistics with suspicion scoring
+- ✅ Logs security violations for ban loop abuse
+- ✅ Provides detailed ban history and statistics
+
+**Files Created:**
+
+- `app/models/BanLoopDetector.go` (200+ lines)
+
+**Files Modified:**
+
+- `app/commands/moderation.go` (added ban loop detection)
+- `app/rest/reports.go` (added ban loop detection to web UI tempban)
+
+**Command Throttling**
+
+- ✅ Prevents admins from targeting same player too frequently (30s cooldown)
+- ✅ Tracks target statistics per admin
+- ✅ Thread-safe with automatic cleanup
+
+**Files Created:**
+
+- `app/models/CommandThrottler.go` (105+ lines)
+
+**Files Modified:**
+
+- `app/commands/moderation.go` (added command throttling)
+
+**Command Timeout Handling**
+
+- ✅ Default 5-second timeout for RCON commands
+- ✅ Configurable timeout via `SendCommandWithTimeout`
+- ✅ Context-aware cancellation via `SendCommandWithContext`
+
+**Files Modified:**
+
+- `app/rcon/index.go` (added timeout methods)
 
 ### 🎯 Next Steps
 

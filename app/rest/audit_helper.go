@@ -163,4 +163,24 @@ func (ah *AuditHelper) LogReportAction(c *gin.Context, reportID uint, action, re
 	)
 }
 
+// LogSecurityViolation logs a security violation attempt
+func (ah *AuditHelper) LogSecurityViolation(c *gin.Context, violationType, attemptedCommand, reason string) error {
+	return ah.LogAction(
+		c,
+		models.ActionSecurityViolation,
+		models.SourceWebUI,
+		false, // Always marked as failed
+		reason,
+		"security",
+		violationType,
+		attemptedCommand,
+		map[string]interface{}{
+			"violation_type":    violationType,
+			"attempted_command": attemptedCommand,
+			"validation_error":  reason,
+		},
+		fmt.Sprintf("Security violation: %s - %s", violationType, reason),
+	)
+}
+
 var Audit = &AuditHelper{}

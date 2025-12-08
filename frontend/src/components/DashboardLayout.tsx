@@ -9,6 +9,7 @@ import {
   Command,
   Group,
   AlertTriangle,
+  FileText,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import {
@@ -70,6 +71,12 @@ const navigation = [
     href: "/reports",
     icon: AlertTriangle,
     permission: "reports.view",
+  },
+  {
+    name: "Audit Logs",
+    href: "/audit",
+    icon: FileText,
+    permission: "rbac.manage",
   },
   { name: "RBAC", href: "/rbac", icon: Shield, permission: "rbac.manage" },
 ];

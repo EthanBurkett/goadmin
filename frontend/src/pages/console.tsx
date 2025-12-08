@@ -38,6 +38,7 @@ import {
 import { usePlayers } from "@/hooks/usePlayers";
 import { Terminal, Send, UserX, Ban, MessageSquare } from "lucide-react";
 import { getMatchingCommands } from "@/lib/cod4-commands";
+import { ErrorBox } from "@/components/ErrorBox";
 
 function Console() {
   const [command, setCommand] = useState("");
@@ -50,6 +51,7 @@ function Console() {
   const [sayMessage, setSayMessage] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const { data: players } = usePlayers();
   const { data: history } = useCommandHistory();
@@ -107,6 +109,9 @@ function Console() {
       sendCommandMutation.mutate(cmd, {
         onSuccess: () => {
           setCommand("");
+        },
+        onError: (e: Error) => {
+          setError(e instanceof Error ? e.message : "Failed to send command");
         },
       });
     }
@@ -419,6 +424,7 @@ function Console() {
               </form>
             </CardContent>
           </Card>
+          {error && <ErrorBox error={error} onClose={() => setError("")} />}
 
           {/* Command History */}
           <Card className="bg-card border-border">

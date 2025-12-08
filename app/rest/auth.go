@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/ethanburkett/goadmin/app/models"
@@ -38,12 +39,38 @@ func login(api *Api) gin.HandlerFunc {
 
 		user, err := models.GetUserByUsername(req.Username)
 		if err != nil || !user.CheckPassword(req.Password) {
+			// Log failed login attempt
+			Audit.LogAction(
+				c,
+				models.ActionLoginFailed,
+				models.SourceWebUI,
+				false,
+				"Invalid username or password",
+				"user",
+				"",
+				req.Username,
+				map[string]interface{}{"username": req.Username},
+				"",
+			)
 			c.Set("error", "Invalid username or password. Please check your credentials and try again.")
 			c.Status(http.StatusUnauthorized)
 			return
 		}
 
 		if !user.Approved {
+			// Log login attempt for unapproved user
+			Audit.LogAction(
+				c,
+				models.ActionLoginFailed,
+				models.SourceWebUI,
+				false,
+				"Account pending approval",
+				"user",
+				fmt.Sprintf("%d", user.ID),
+				user.Username,
+				map[string]interface{}{"username": user.Username, "approved": false},
+				"",
+			)
 			c.Set("error", "Your account is pending approval. Please wait for an administrator to approve your registration.")
 			c.Status(http.StatusForbidden)
 			return
@@ -57,6 +84,20 @@ func login(api *Api) gin.HandlerFunc {
 		}
 
 		c.SetCookie("session_token", session.Token, 30*24*60*60, "/", "", false, true)
+
+		// Log successful login
+		Audit.LogAction(
+			c,
+			models.ActionLogin,
+			models.SourceWebUI,
+			true,
+			"",
+			"user",
+			fmt.Sprintf("%d", user.ID),
+			user.Username,
+			map[string]interface{}{"username": user.Username},
+			"Login successful",
+		)
 
 		c.Set("data", gin.H{
 			"user": gin.H{
@@ -115,6 +156,25 @@ func logout(api *Api) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token, err := c.Cookie("session_token")
 		if err == nil && token != "" {
+			// Try to get user info before deleting session for audit log
+			session, _ := models.GetSessionByToken(token)
+			if session != nil {
+				user, _ := models.GetUserByID(session.UserID)
+				if user != nil {
+					Audit.LogAction(
+						c,
+						models.ActionLogout,
+						models.SourceWebUI,
+						true,
+						"",
+						"user",
+						fmt.Sprintf("%d", user.ID),
+						user.Username,
+						map[string]interface{}{"username": user.Username},
+						"Logout successful",
+					)
+				}
+			}
 			models.DeleteSession(token)
 		}
 

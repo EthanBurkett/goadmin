@@ -1,6 +1,7 @@
 package rcon
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"strconv"
@@ -45,6 +46,11 @@ func (c *Client) Connect() error {
 }
 
 func (c *Client) SendCommand(command string) (string, error) {
+	return c.SendCommandWithTimeout(command, c.Timeout)
+}
+
+// SendCommandWithTimeout sends a command with a custom timeout
+func (c *Client) SendCommandWithTimeout(command string, timeout time.Duration) (string, error) {
 	if c.conn == nil {
 		return "", fmt.Errorf("not connected")
 	}
@@ -56,7 +62,7 @@ func (c *Client) SendCommand(command string) (string, error) {
 		return "", err
 	}
 
-	_ = c.conn.SetReadDeadline(time.Now().Add(c.Timeout))
+	_ = c.conn.SetReadDeadline(time.Now().Add(timeout))
 
 	buf := make([]byte, 4096)
 	n, _, err := c.conn.ReadFromUDP(buf)
@@ -69,6 +75,32 @@ func (c *Client) SendCommand(command string) (string, error) {
 	response = strings.TrimPrefix(response, "\xFF\xFF\xFF\xFFprint\n")
 
 	return response, nil
+}
+
+// SendCommandWithContext sends a command with context cancellation support
+func (c *Client) SendCommandWithContext(ctx context.Context, command string) (string, error) {
+	if c.conn == nil {
+		return "", fmt.Errorf("not connected")
+	}
+
+	type result struct {
+		response string
+		err      error
+	}
+
+	resultChan := make(chan result, 1)
+
+	go func() {
+		resp, err := c.SendCommand(command)
+		resultChan <- result{response: resp, err: err}
+	}()
+
+	select {
+	case <-ctx.Done():
+		return "", fmt.Errorf("command cancelled: %w", ctx.Err())
+	case res := <-resultChan:
+		return res.response, res.err
+	}
 }
 
 func (c *Client) Close() error {

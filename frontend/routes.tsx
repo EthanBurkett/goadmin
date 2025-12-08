@@ -2,6 +2,8 @@ import {RouteObject} from "react-router-dom";
 const routes: RouteObject[] = [];
 import Analytics from "./src/pages/analytics";
 routes.push({ path: "/analytics", element: <Analytics /> });
+import Audit from "./src/pages/audit";
+routes.push({ path: "/audit", element: <Audit /> });
 import Commands from "./src/pages/commands";
 routes.push({ path: "/commands", element: <Commands /> });
 import Console from "./src/pages/console";

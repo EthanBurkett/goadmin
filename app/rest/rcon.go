@@ -109,6 +109,13 @@ func sendCommand(api *Api) gin.HandlerFunc {
 		// Validate and sanitize command
 		sanitizedCommand, err := ValidateRconCommand(req.Command)
 		if err != nil {
+			// Log security violation for invalid commands
+			violationType := "invalid_command"
+			if CommandValidatorInstance.IsRestrictedCommand(req.Command) {
+				violationType = "restricted_command_attempt"
+			}
+			Audit.LogSecurityViolation(c, violationType, req.Command, err.Error())
+
 			c.Set("error", fmt.Sprintf("Invalid command: %v", err))
 			c.Status(http.StatusBadRequest)
 			return

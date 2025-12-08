@@ -73,6 +73,7 @@ func New(cfg *config.Config, rconClient *rcon.Client) *Api {
 	RegisterCommandRoutes(r, api)
 	RegisterReportRoutes(r, api)
 	RegisterIamGodRoute(r, api)
+	RegisterAuditRoutes(r, api)
 
 	rconClient.SendCommand("say ^5GoAdmin ^7now serving.")
 

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/ethanburkett/goadmin/app/logger"
 	"github.com/ethanburkett/goadmin/app/models"
@@ -12,25 +14,73 @@ import (
 )
 
 type CommandHandler struct {
-	rcon      *rcon.Client
-	callbacks map[string]CommandCallback
+	rcon           *rcon.Client
+	callbacks      map[string]CommandCallback
+	recentCommands map[string]time.Time // Track recent commands to prevent duplicates
+	commandMutex   sync.Mutex           // Mutex for thread-safe access to recentCommands
 }
 
 type CommandCallback func(ch *CommandHandler, playerName, playerGUID string, args []string) error
 
 func NewCommandHandler(rconClient *rcon.Client) *CommandHandler {
 	handler := &CommandHandler{
-		rcon:      rconClient,
-		callbacks: make(map[string]CommandCallback),
+		rcon:           rconClient,
+		callbacks:      make(map[string]CommandCallback),
+		recentCommands: make(map[string]time.Time),
 	}
 
 	handler.registerBuiltInCallbacks()
 
+	// Start cleanup goroutine for recent commands
+	go handler.cleanupRecentCommands()
+
 	return handler
+}
+
+// cleanupRecentCommands periodically removes old command entries
+func (ch *CommandHandler) cleanupRecentCommands() {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		ch.commandMutex.Lock()
+		cutoff := time.Now().Add(-5 * time.Second)
+		for key, timestamp := range ch.recentCommands {
+			if timestamp.Before(cutoff) {
+				delete(ch.recentCommands, key)
+			}
+		}
+		ch.commandMutex.Unlock()
+	}
+}
+
+// isDuplicateCommand checks if this command was recently executed
+func (ch *CommandHandler) isDuplicateCommand(playerGUID, message string) bool {
+	key := fmt.Sprintf("%s:%s", playerGUID, message)
+
+	ch.commandMutex.Lock()
+	defer ch.commandMutex.Unlock()
+
+	if lastExec, exists := ch.recentCommands[key]; exists {
+		// If command was executed within last 2 seconds, it's a duplicate
+		if time.Since(lastExec) < 2*time.Second {
+			return true
+		}
+	}
+
+	// Mark this command as executed
+	ch.recentCommands[key] = time.Now()
+	return false
 }
 
 // ProcessChatCommand processes a chat message that starts with !
 func (ch *CommandHandler) ProcessChatCommand(playerName, playerGUID, message string) error {
+	// Check for duplicate command (CoD4 logs both say and sayteam)
+	if ch.isDuplicateCommand(playerGUID, message) {
+		logger.Debug(fmt.Sprintf("Ignoring duplicate command from %s: %s", playerName, message))
+		return nil
+	}
+
 	message = strings.TrimPrefix(message, "!")
 
 	parts := strings.Fields(message)

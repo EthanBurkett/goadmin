@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -334,10 +335,47 @@ func assignRoleToUser(api *Api) gin.HandlerFunc {
 		}
 
 		if err := models.AddRoleToUser(uint(id), req.RoleID); err != nil {
+			Audit.LogAction(
+				c,
+				models.ActionRoleAssign,
+				models.SourceWebUI,
+				false,
+				err.Error(),
+				"user",
+				fmt.Sprintf("%d", id),
+				"",
+				map[string]interface{}{"role_id": req.RoleID},
+				"",
+			)
 			c.Set("error", err.Error())
 			c.Status(http.StatusInternalServerError)
 			return
 		}
+
+		// Get user and role info for audit log
+		user, _ := models.GetUserByID(uint(id))
+		role, _ := models.GetRoleByID(req.RoleID)
+		username := ""
+		roleName := ""
+		if user != nil {
+			username = user.Username
+		}
+		if role != nil {
+			roleName = role.Name
+		}
+
+		Audit.LogAction(
+			c,
+			models.ActionRoleAssign,
+			models.SourceWebUI,
+			true,
+			"",
+			"user",
+			fmt.Sprintf("%d", id),
+			username,
+			map[string]interface{}{"role_id": req.RoleID, "role_name": roleName},
+			fmt.Sprintf("Role '%s' assigned to user '%s'", roleName, username),
+		)
 
 		c.Set("data", gin.H{"message": "Role assigned to user"})
 		c.Status(http.StatusOK)
@@ -360,11 +398,48 @@ func removeRoleFromUser(api *Api) gin.HandlerFunc {
 			return
 		}
 
+		// Get user and role info before removal for audit log
+		user, _ := models.GetUserByID(uint(id))
+		role, _ := models.GetRoleByID(uint(roleId))
+		username := ""
+		roleName := ""
+		if user != nil {
+			username = user.Username
+		}
+		if role != nil {
+			roleName = role.Name
+		}
+
 		if err := models.RemoveRoleFromUser(uint(id), uint(roleId)); err != nil {
+			Audit.LogAction(
+				c,
+				models.ActionRoleRevoke,
+				models.SourceWebUI,
+				false,
+				err.Error(),
+				"user",
+				fmt.Sprintf("%d", id),
+				username,
+				map[string]interface{}{"role_id": roleId, "role_name": roleName},
+				"",
+			)
 			c.Set("error", err.Error())
 			c.Status(http.StatusInternalServerError)
 			return
 		}
+
+		Audit.LogAction(
+			c,
+			models.ActionRoleRevoke,
+			models.SourceWebUI,
+			true,
+			"",
+			"user",
+			fmt.Sprintf("%d", id),
+			username,
+			map[string]interface{}{"role_id": roleId, "role_name": roleName},
+			fmt.Sprintf("Role '%s' removed from user '%s'", roleName, username),
+		)
 
 		c.Set("data", gin.H{"message": "Role removed from user"})
 		c.Status(http.StatusOK)
@@ -401,10 +476,47 @@ func approveUser(api *Api) gin.HandlerFunc {
 		}
 
 		if err := models.ApproveUser(uint(id), req.RoleID); err != nil {
+			Audit.LogAction(
+				c,
+				models.ActionUserApprove,
+				models.SourceWebUI,
+				false,
+				err.Error(),
+				"user",
+				fmt.Sprintf("%d", id),
+				"",
+				map[string]interface{}{"role_id": req.RoleID},
+				"",
+			)
 			c.Set("error", "Failed to approve user. The user or role may not exist.")
 			c.Status(http.StatusInternalServerError)
 			return
 		}
+
+		// Get user and role info for audit log
+		user, _ := models.GetUserByID(uint(id))
+		role, _ := models.GetRoleByID(req.RoleID)
+		username := ""
+		roleName := ""
+		if user != nil {
+			username = user.Username
+		}
+		if role != nil {
+			roleName = role.Name
+		}
+
+		Audit.LogAction(
+			c,
+			models.ActionUserApprove,
+			models.SourceWebUI,
+			true,
+			"",
+			"user",
+			fmt.Sprintf("%d", id),
+			username,
+			map[string]interface{}{"role_id": req.RoleID, "role_name": roleName},
+			fmt.Sprintf("User approved with role: %s", roleName),
+		)
 
 		c.Set("data", gin.H{"message": "User has been approved and can now log in with their assigned role."})
 		c.Status(http.StatusOK)
@@ -420,11 +532,43 @@ func denyUser(api *Api) gin.HandlerFunc {
 			return
 		}
 
+		// Get user info before deletion for audit log
+		user, _ := models.GetUserByID(uint(id))
+		username := ""
+		if user != nil {
+			username = user.Username
+		}
+
 		if err := models.DenyUser(uint(id)); err != nil {
+			Audit.LogAction(
+				c,
+				models.ActionUserReject,
+				models.SourceWebUI,
+				false,
+				err.Error(),
+				"user",
+				fmt.Sprintf("%d", id),
+				username,
+				nil,
+				"",
+			)
 			c.Set("error", "Failed to deny user registration. The user may not exist.")
 			c.Status(http.StatusInternalServerError)
 			return
 		}
+
+		Audit.LogAction(
+			c,
+			models.ActionUserReject,
+			models.SourceWebUI,
+			true,
+			"",
+			"user",
+			fmt.Sprintf("%d", id),
+			username,
+			map[string]interface{}{"username": username},
+			"User registration denied and account removed",
+		)
 
 		c.Set("data", gin.H{"message": "User registration has been denied and the account has been removed."})
 		c.Status(http.StatusOK)

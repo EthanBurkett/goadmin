@@ -134,6 +134,23 @@ func (ch *CommandHandler) handleTempBanCommand(ch2 *CommandHandler, playerName, 
 		return nil
 	}
 
+	// Check command throttling (prevent targeting same player too frequently - 30 second cooldown)
+	throttleResult := models.CommandThrottlerInstance.CheckThrottle(playerGUID, bannedGUID, "tempban", 30*time.Second)
+	if !throttleResult.Allowed {
+		ch.sendPlayerMessage(playerName, fmt.Sprintf("^1%s", throttleResult.Reason))
+		ch.sendPlayerMessage(playerName, fmt.Sprintf("^1Please wait %d seconds", int(throttleResult.TimeRemaining.Seconds())))
+		return nil
+	}
+
+	// Check for ban loop abuse (5 bans in 15 minutes)
+	banLoopResult, err := models.BanLoopDetectorInstance.CheckBanLoop(bannedGUID, 15*time.Minute, 5)
+	if err == nil && banLoopResult.IsAbuse {
+		ch.sendPlayerMessage(playerName, "^1Warning: This player has been banned multiple times recently")
+		ch.sendPlayerMessage(playerName, fmt.Sprintf("^1%s", banLoopResult.Reason))
+		logger.Info(fmt.Sprintf("[BAN LOOP DETECTED] %s (GUID: %s) - %d bans in %v",
+			bannedPlayerName, bannedGUID, banLoopResult.RecentBanCount, banLoopResult.TimeWindow))
+	}
+
 	tempBan, err := models.CreateTempBan(bannedPlayerName, bannedGUID, reason, duration, nil)
 	if err != nil {
 		ch.sendPlayerMessage(playerName, "Failed to create temp ban")

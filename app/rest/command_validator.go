@@ -8,8 +8,8 @@ import (
 
 // CommandValidator validates and sanitizes RCON commands
 type CommandValidator struct {
-	// List of allowed command prefixes
-	allowedCommands []string
+	// List of disallowed command prefixes
+	disallowedCommands []string
 	// List of blocked command patterns
 	blockedPatterns []*regexp.Regexp
 	// Maximum command length
@@ -21,57 +21,50 @@ type CommandValidator struct {
 // NewCommandValidator creates a new command validator
 func NewCommandValidator() *CommandValidator {
 	return &CommandValidator{
-		allowedCommands: []string{
-			// Player management
-			"clientkick",
-			"banclient",
-			"unbanclient",
-			"tempbanclient",
-			"say",
-			"tell",
+		disallowedCommands: []string{
+			// Server shutdown/control - dangerous
+			"quit",
+			"exit",
+			"killserver",
 
-			// Server info
-			"status",
-			"serverinfo",
-			"systeminfo",
-			"dumpuser",
+			// Plugin/module loading - security risk
+			"loadplugin",
+			"unloadplugin",
 
-			// Map/Game control
-			"map",
-			"map_rotate",
-			"map_restart",
-			"fast_restart",
-			"g_gametype",
+			// Network changes - could break connectivity
+			"net_restart",
+			"net_ip",
+			"net_port",
 
-			// Server control (restricted)
-			"exec",
-			"writeconfig",
-			"set",
-			"seta",
-			"sets",
-			"setu",
+			// Developer/debug - should not be accessible
+			"developer",
+			"devmap",
+			"sv_cheats",
 
-			// Custom/safe commands
-			"players",
-			"mapname",
-			"g_antilag",
-			"g_compassshownemies",
+			// Filesystem access - security risk
+			"dir",
+			"fs_game",
+			"fs_homepath",
+			"fs_basepath",
+
+			// System commands
+			"cmdlist",
+			"cvarlist",
+			"which",
+			"vstr",
 		},
 		blockedPatterns: []*regexp.Regexp{
-			// Block commands that could shut down server
-			regexp.MustCompile(`(?i)^(quit|exit|killserver)`),
-			// Block commands that could expose sensitive data
+			// Block password exposure
 			regexp.MustCompile(`(?i)rcon_password`),
-			regexp.MustCompile(`(?i)sv_privatePassword`),
-			// Block filesystem access
-			regexp.MustCompile(`(?i)^(fs_|dir |cd |ls )`),
+			regexp.MustCompile(`(?i)sv_privatepassword`),
+			regexp.MustCompile(`(?i)g_password`),
 			// Block script execution that could be malicious
 			regexp.MustCompile(`(?i);.*exec`), // Chained exec commands
 			regexp.MustCompile(`(?i)\$\(`),    // Command substitution
 			regexp.MustCompile(`(?i)&&`),      // Command chaining
 			regexp.MustCompile(`(?i)\|\|`),    // OR chaining
-			// Block potential injection attempts
-			regexp.MustCompile(`[<>|&;$` + "`" + `]`), // Shell metacharacters
+			// Block potential injection attempts (pipe, redirect, backticks)
+			regexp.MustCompile(`[|<>` + "`" + `]`), // Pipes, redirects, backticks only
 		},
 		maxLength: 500,
 		maxArgs:   20,
@@ -112,17 +105,11 @@ func (cv *CommandValidator) ValidateCommand(command string) error {
 	// Extract base command
 	baseCmd := strings.ToLower(parts[0])
 
-	// Check if command is in allowed list
-	allowed := false
-	for _, allowedCmd := range cv.allowedCommands {
-		if baseCmd == allowedCmd || strings.HasPrefix(baseCmd, allowedCmd) {
-			allowed = true
-			break
+	// Check if command is in disallowed list
+	for _, disallowedCmd := range cv.disallowedCommands {
+		if baseCmd == disallowedCmd || strings.HasPrefix(baseCmd, disallowedCmd) {
+			return fmt.Errorf("command not allowed: %s", baseCmd)
 		}
-	}
-
-	if !allowed {
-		return fmt.Errorf("command not in allowed list: %s", baseCmd)
 	}
 
 	return nil
