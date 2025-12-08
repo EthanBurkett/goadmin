@@ -21,7 +21,7 @@ function App() {
               Dashboard
             </h1>
             <p className="text-muted-foreground">
-              Welcome to your CoD4 server admin panel
+              Welcome to your GoAdmin server admin panel
             </p>
           </div>
 

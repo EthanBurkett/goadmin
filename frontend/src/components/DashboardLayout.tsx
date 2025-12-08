@@ -107,9 +107,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           <SidebarHeader className="border-b border-border p-4">
             <div className="flex items-center space-x-2">
               <Shield className="h-6 w-6 text-primary" />
-              <span className="text-lg font-bold text-foreground">
-                CoD4 Admin
-              </span>
+              <span className="text-lg font-bold text-foreground">GoAdmin</span>
             </div>
           </SidebarHeader>
           <SidebarContent>

@@ -66,7 +66,7 @@ function Login() {
           </CardTitle>
           <CardDescription className="text-muted-foreground">
             {isRegisterMode
-              ? "Register for CoD4 Admin Panel"
+              ? "Register for GoAdmin"
               : "Enter your credentials to access the admin panel"}
           </CardDescription>
         </CardHeader>

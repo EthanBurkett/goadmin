@@ -3,6 +3,7 @@
     "concurrently": "^9.2.1"
   },
   "scripts": {
+    "deps": "concurrently --kill-others --names \"backend,frontend\" --prefix-colors \"blue,magenta\" \"go mod download\" \"cd frontend && pnpm install\"",
     "dev": "concurrently --kill-others --names \"backend,frontend\" --prefix-colors \"blue,magenta\" \"air\" \"cd frontend && pnpm dev\"",
     "clean": "powershell -Command \"Stop-Process -Name 'air','main' -Force -ErrorAction SilentlyContinue; Remove-Item -Path tmp -Recurse -Force -ErrorAction SilentlyContinue\""
   }
