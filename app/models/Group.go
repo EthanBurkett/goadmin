@@ -24,7 +24,7 @@ type InGamePlayer struct {
 	GUID      string    `gorm:"unique;not null;index" json:"guid"` // PB GUID/UUID/XUID
 	Name      string    `gorm:"index" json:"name"`                 // Last known name
 	GroupID   *uint     `json:"groupId"`                           // Optional group assignment
-	Group     *Group    `gorm:"foreignKey:GroupID" json:"group,omitempty"`
+	Group     *Group    `gorm:"foreignKey:GroupID;constraint:OnDelete:SET NULL" json:"group,omitempty"`
 	Enabled   bool      `gorm:"default:true" json:"enabled"` // Can be disabled/banned
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`

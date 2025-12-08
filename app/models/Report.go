@@ -17,7 +17,7 @@ type Report struct {
 	Status           string    `gorm:"default:'pending'" json:"status"`  // pending, reviewed, actioned, dismissed
 	ActionTaken      string    `gorm:"type:text" json:"actionTaken"`     // What action was taken (if any)
 	ReviewedByUserID *uint     `json:"reviewedByUserId"`                 // User who reviewed
-	ReviewedBy       *User     `gorm:"foreignKey:ReviewedByUserID" json:"reviewedBy,omitempty"`
+	ReviewedBy       *User     `gorm:"foreignKey:ReviewedByUserID;constraint:OnDelete:SET NULL" json:"reviewedBy,omitempty"`
 	CreatedAt        time.Time `json:"createdAt"`
 	UpdatedAt        time.Time `json:"updatedAt"`
 }

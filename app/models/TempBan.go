@@ -13,7 +13,7 @@ type TempBan struct {
 	PlayerGUID   string    `gorm:"not null;index" json:"playerGuid"` // GUID of banned player
 	Reason       string    `gorm:"type:text;not null" json:"reason"` // Reason for ban
 	BannedByUser *uint     `json:"bannedByUser"`                     // User who issued ban
-	BannedBy     *User     `gorm:"foreignKey:BannedByUser" json:"bannedBy,omitempty"`
+	BannedBy     *User     `gorm:"foreignKey:BannedByUser;constraint:OnDelete:SET NULL" json:"bannedBy,omitempty"`
 	ExpiresAt    time.Time `gorm:"not null;index" json:"expiresAt"`  // When ban expires
 	Active       bool      `gorm:"default:true;index" json:"active"` // Whether ban is still active
 	CreatedAt    time.Time `json:"createdAt"`

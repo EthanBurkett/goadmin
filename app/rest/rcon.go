@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -59,6 +60,7 @@ type SetCvarRequest struct {
 func RegisterRconRoutes(r *gin.Engine, api *Api) {
 	rcon := r.Group("/rcon")
 	rcon.Use(AuthMiddleware())
+	rcon.Use(RateLimitByUser(RconRateLimiter)) // Add rate limiting for RCON commands
 	{
 		// Basic commands
 		rcon.POST("/command", RequirePermission("rcon.command"), sendCommand(api))
@@ -104,6 +106,14 @@ func sendCommand(api *Api) gin.HandlerFunc {
 			return
 		}
 
+		// Validate and sanitize command
+		sanitizedCommand, err := ValidateRconCommand(req.Command)
+		if err != nil {
+			c.Set("error", fmt.Sprintf("Invalid command: %v", err))
+			c.Status(http.StatusBadRequest)
+			return
+		}
+
 		// Get user from context
 		userVal, exists := c.Get("user")
 		if !exists {
@@ -113,15 +123,22 @@ func sendCommand(api *Api) gin.HandlerFunc {
 		}
 		user := userVal.(*models.User)
 
-		response, err := api.rcon.SendCommand(req.Command)
+		response, err := api.rcon.SendCommand(sanitizedCommand)
 		success := err == nil
 
 		// Save command history
 		if success {
-			models.CreateCommandHistory(user.ID, req.Command, response, true)
+			models.CreateCommandHistory(user.ID, sanitizedCommand, response, true)
 		} else {
-			models.CreateCommandHistory(user.ID, req.Command, err.Error(), false)
+			models.CreateCommandHistory(user.ID, sanitizedCommand, err.Error(), false)
 		}
+
+		// Log to audit trail
+		var errorMsg string
+		if err != nil {
+			errorMsg = err.Error()
+		}
+		Audit.LogRconCommand(c, sanitizedCommand, response, success, errorMsg)
 
 		if err != nil {
 			c.Set("error", err.Error())
@@ -167,6 +184,13 @@ func kickPlayer(api *Api) gin.HandlerFunc {
 			models.CreateCommandHistory(user.ID, command, err.Error(), false)
 		}
 
+		// Log to audit trail
+		var errorMsg string
+		if err != nil {
+			errorMsg = err.Error()
+		}
+		Audit.LogKick(c, "", req.PlayerID, req.Reason, success, errorMsg)
+
 		if err != nil {
 			c.Set("error", err.Error())
 			c.Status(http.StatusInternalServerError)
@@ -210,6 +234,13 @@ func banPlayer(api *Api) gin.HandlerFunc {
 		} else {
 			models.CreateCommandHistory(user.ID, command, err.Error(), false)
 		}
+
+		// Log to audit trail
+		var errorMsg string
+		if err != nil {
+			errorMsg = err.Error()
+		}
+		Audit.LogBan(c, "", req.PlayerID, req.Reason, success, errorMsg)
 
 		if err != nil {
 			c.Set("error", err.Error())

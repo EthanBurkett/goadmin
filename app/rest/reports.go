@@ -131,10 +131,12 @@ func actionReport(api *Api) gin.HandlerFunc {
 			// Execute permanent ban via RCON
 			_, err := api.rcon.SendCommand("banClient " + report.ReportedGUID + " " + req.Reason)
 			if err != nil {
+				Audit.LogBan(c, report.ReportedName, report.ReportedGUID, req.Reason, false, err.Error())
 				c.Set("error", "Failed to execute ban")
 				c.Status(http.StatusInternalServerError)
 				return
 			}
+			Audit.LogBan(c, report.ReportedName, report.ReportedGUID, req.Reason, true, "")
 
 		case "tempban":
 			if req.Duration == nil || *req.Duration <= 0 {
@@ -146,6 +148,7 @@ func actionReport(api *Api) gin.HandlerFunc {
 			duration := time.Duration(*req.Duration) * time.Hour
 			_, err := models.CreateTempBan(report.ReportedName, report.ReportedGUID, req.Reason, duration, &uid)
 			if err != nil {
+				Audit.LogTempBan(c, report.ReportedName, report.ReportedGUID, req.Reason, *req.Duration, false, err.Error())
 				c.Set("error", "Failed to create temporary ban")
 				c.Status(http.StatusInternalServerError)
 				return
@@ -159,6 +162,8 @@ func actionReport(api *Api) gin.HandlerFunc {
 			if err != nil {
 				// Log error but continue - they might already be offline
 			}
+
+			Audit.LogTempBan(c, report.ReportedName, report.ReportedGUID, req.Reason, *req.Duration, true, "")
 
 		default:
 			c.Set("error", "Invalid action")

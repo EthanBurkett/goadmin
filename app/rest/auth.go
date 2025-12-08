@@ -20,8 +20,8 @@ type RegisterRequest struct {
 func RegisterAuthRoutes(r *gin.Engine, api *Api) {
 	auth := r.Group("/auth")
 	{
-		auth.POST("/login", login(api))
-		auth.POST("/register", register(api))
+		auth.POST("/login", RateLimitByIP(LoginRateLimiter), login(api))
+		auth.POST("/register", RateLimitByIP(LoginRateLimiter), register(api))
 		auth.POST("/logout", logout(api))
 		auth.GET("/me", getMe(api))
 	}

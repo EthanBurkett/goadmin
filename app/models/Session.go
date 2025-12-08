@@ -16,7 +16,7 @@ type Session struct {
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"deletedAt,omitempty"`
 	Token     string         `gorm:"uniqueIndex;not null" json:"token"`
 	UserID    uint           `gorm:"not null;index" json:"userId"`
-	User      User           `gorm:"foreignKey:UserID" json:"user"`
+	User      User           `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE" json:"user"`
 	ExpiresAt time.Time      `gorm:"not null" json:"expiresAt"`
 }
 

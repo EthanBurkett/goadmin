@@ -51,6 +51,7 @@ func main() {
 		models.CustomCommand{},
 		models.Report{},
 		models.TempBan{},
+		models.AuditLog{},
 	)
 
 	initializeSuperAdminRole()

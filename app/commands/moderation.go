@@ -140,6 +140,22 @@ func (ch *CommandHandler) handleTempBanCommand(ch2 *CommandHandler, playerName, 
 		return err
 	}
 
+	// Log audit entry for in-game temp ban
+	models.CreateAuditLog(
+		nil,
+		playerName,
+		"",
+		models.ActionTempBanPlayer,
+		models.SourceInGame,
+		true,
+		"",
+		"player",
+		bannedGUID,
+		bannedPlayerName,
+		fmt.Sprintf(`{"reason": "%s", "duration": "%s", "issued_by": "%s"}`, reason, durationStr, playerName),
+		fmt.Sprintf("Temporarily banned for %s: %s", durationStr, reason),
+	)
+
 	kickCmd := fmt.Sprintf("clientkick %d \"Temp banned: %s (Expires: %s)\"",
 		bannedEntityID,
 		reason,

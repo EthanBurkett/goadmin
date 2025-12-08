@@ -13,7 +13,7 @@ type CommandHistory struct {
 	UpdatedAt time.Time      `json:"updatedAt"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"deletedAt,omitempty"`
 	UserID    uint           `gorm:"not null;index" json:"userId"`
-	User      User           `gorm:"foreignKey:UserID" json:"user,omitempty"`
+	User      User           `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE" json:"user,omitempty"`
 	Command   string         `gorm:"not null" json:"command"`
 	Response  string         `gorm:"type:text" json:"response"`
 	Success   bool           `gorm:"default:true" json:"success"`
