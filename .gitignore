@@ -4,3 +4,4 @@ config.json
 *-lock.yaml
 go.sum
 *.sqlite
+tmp/
