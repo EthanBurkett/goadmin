@@ -239,7 +239,7 @@ func (ch *CommandHandler) hasRequiredPermissions(playerPerms []string, requiredP
 
 // sendPlayerMessage sends a message to a specific player
 func (ch *CommandHandler) sendPlayerMessage(playerName, message string) {
-	cmd := fmt.Sprintf("tell %s ^3[Command] ^7%s", playerName, message)
+	cmd := fmt.Sprintf("tell %s ^7%s", playerName, message)
 	ch.rcon.SendCommand(cmd)
 }
 
