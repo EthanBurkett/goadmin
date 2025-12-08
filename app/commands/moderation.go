@@ -41,6 +41,11 @@ func (ch *CommandHandler) handleReportCommand(ch2 *CommandHandler, playerName, p
 		return nil
 	}
 
+	if reportedGUID == playerGUID {
+		ch.sendPlayerMessage(playerName, "You cannot report yourself")
+		return nil
+	}
+
 	report, err := models.CreateReport(playerName, playerGUID, reportedPlayerName, reportedGUID, reason)
 	if err != nil {
 		ch.sendPlayerMessage(playerName, "Failed to submit report")

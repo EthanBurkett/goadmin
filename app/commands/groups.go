@@ -93,6 +93,11 @@ func (ch *CommandHandler) handlePutGroupCommand(ch2 *CommandHandler, playerName,
 		return nil
 	}
 
+	if targetGUID == playerGUID {
+		ch.sendPlayerMessage(playerName, "You cannot change your own group")
+		return nil
+	}
+
 	groups, err := models.GetAllGroups()
 	if err != nil {
 		ch.sendPlayerMessage(playerName, "Failed to fetch groups")
@@ -116,6 +121,11 @@ func (ch *CommandHandler) handlePutGroupCommand(ch2 *CommandHandler, playerName,
 	if err != nil {
 		ch.sendPlayerMessage(playerName, "Failed to create player record")
 		return err
+	}
+
+	if targetGroup.Power > models.GetPlayerPower(targetGUID) {
+		ch.sendPlayerMessage(playerName, "You cannot assign a group with higher power than your own")
+		return nil
 	}
 
 	if err := models.AssignPlayerToGroup(player.ID, targetGroup.ID); err != nil {
