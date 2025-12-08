@@ -84,7 +84,7 @@ func getAuditLogs(api *Api) gin.HandlerFunc {
 			}
 		}
 
-		logs, total, err := models.GetAuditLogs(filters, query.Limit, query.Offset)
+		logs, total, err := models.GetAuditLogs(api.DB, filters, query.Limit, query.Offset)
 		if err != nil {
 			c.Set("error", "Failed to fetch audit logs")
 			c.Status(http.StatusInternalServerError)
@@ -112,7 +112,7 @@ func getRecentAuditLogs(api *Api) gin.HandlerFunc {
 			limit = 500
 		}
 
-		logs, err := models.GetRecentAuditLogs(limit)
+		logs, err := models.GetRecentAuditLogs(api.DB, limit)
 		if err != nil {
 			c.Set("error", "Failed to fetch recent audit logs")
 			c.Status(http.StatusInternalServerError)
@@ -144,7 +144,7 @@ func getAuditLogsByUser(api *Api) gin.HandlerFunc {
 			limit = 500
 		}
 
-		logs, err := models.GetAuditLogsByUser(uint(userId), limit)
+		logs, err := models.GetAuditLogsByUser(api.DB, uint(userId), limit)
 		if err != nil {
 			c.Set("error", "Failed to fetch audit logs for user")
 			c.Status(http.StatusInternalServerError)
@@ -176,7 +176,7 @@ func getAuditLogsByAction(api *Api) gin.HandlerFunc {
 			limit = 500
 		}
 
-		logs, err := models.GetAuditLogsByAction(models.ActionType(action), limit)
+		logs, err := models.GetAuditLogsByAction(api.DB, models.ActionType(action), limit)
 		if err != nil {
 			c.Set("error", "Failed to fetch audit logs for action")
 			c.Status(http.StatusInternalServerError)

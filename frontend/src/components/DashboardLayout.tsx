@@ -10,6 +10,7 @@ import {
   Group,
   AlertTriangle,
   FileText,
+  Webhook,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import {
@@ -76,6 +77,12 @@ const navigation = [
     name: "Audit Logs",
     href: "/audit",
     icon: FileText,
+    permission: "rbac.manage",
+  },
+  {
+    name: "Webhooks",
+    href: "/webhooks",
+    icon: Webhook,
     permission: "rbac.manage",
   },
   { name: "RBAC", href: "/rbac", icon: Shield, permission: "rbac.manage" },

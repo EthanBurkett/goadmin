@@ -28,11 +28,23 @@ This document tracks major improvements and refactoring tasks for GoAdmin.
 
 ### Database Integrity
 
-- [ ] Add database migration versioning system
+- [x] ✅ Add database migration versioning system
+  - [x] ✅ Migration model with version tracking
+  - [x] ✅ Migration history tracking
+  - [x] ✅ MigrationRunner with apply/rollback support
+  - [x] ✅ Transaction-safe migrations
+  - [x] ✅ REST API endpoints for migration management
 - [ ] Create database integrity validation script
 - [ ] Add database backup/restore functionality
 - [ ] Implement transaction safety for critical operations
 - [ ] Add database constraint violation handling
+
+**Migration System Files:**
+
+- `app/models/Migration.go` - Migration tracking models
+- `app/database/migrations.go` - MigrationRunner implementation
+- `app/main.go` - Migration definitions and system integration
+- `app/rest/migrations.go` - REST API endpoints
 
 ## ✅ COMPLETED - Audit Logging System
 
@@ -186,27 +198,51 @@ This document tracks major improvements and refactoring tasks for GoAdmin.
   - [ ] Slack notifications
   - [ ] External API integrations
 
-### Webhook System
+### ✅ COMPLETED - Webhook System
 
-- [ ] Create webhook configuration table
-- [ ] Webhook event triggers
-  - [ ] Player banned
-  - [ ] Report submitted
-  - [ ] Admin action taken
+- [x] ✅ Create webhook configuration table
+- [x] ✅ Webhook event triggers
+  - [x] ✅ Player banned (in-game & web)
+  - [x] ✅ Report submitted (in-game)
+  - [x] ✅ Report actioned (web)
   - [ ] Server status change
-- [ ] Webhook delivery system
-  - [ ] Retry logic with exponential backoff
-  - [ ] Delivery status tracking
-  - [ ] Webhook signing for security
-- [ ] Webhook management UI
-  - [ ] Create/edit/delete webhooks
-  - [ ] Test webhook delivery
-  - [ ] View delivery logs
+- [x] ✅ Webhook delivery system
+  - [x] ✅ Retry logic with exponential backoff
+  - [x] ✅ Delivery status tracking
+  - [x] ✅ Webhook HMAC SHA256 signing for security
+- [x] ✅ Webhook REST API
+  - [x] ✅ Create/edit/delete webhooks
+  - [x] ✅ Test webhook delivery
+  - [x] ✅ View delivery logs
+- [x] ✅ Webhook management UI (frontend)
+  - [x] ✅ Create/edit/delete webhooks
+  - [x] ✅ Test webhook delivery
+  - [x] ✅ View delivery logs
+
+**Files Created:**
+
+- `app/models/Webhook.go` (180 lines) - Webhook & WebhookDelivery models
+- `app/webhook/dispatcher.go` (255 lines) - Dispatcher with retry logic
+- `app/rest/webhooks.go` (276 lines) - REST API endpoints
+- `frontend/src/hooks/useWebhooks.ts` (130 lines) - React hooks for webhook CRUD
+- `frontend/src/pages/webhooks.tsx` (420 lines) - Webhook management UI
+
+**Files Modified:**
+
+- `app/main.go` - Migrations & retry worker startup
+- `app/rest/main.go` - Route registration
+- `app/commands/moderation.go` - Dispatch ban/report events
+- `app/rest/reports.go` - Dispatch web ban/report events
 
 ### Event System
 
-- [ ] Create core event bus/dispatcher
-- [ ] Define standard event types
+- [x] ✅ Core event dispatcher (webhook.GlobalDispatcher)
+- [x] ✅ Standard event types (10 defined)
+  - [x] ✅ player.banned, player.unbanned, player.kicked
+  - [x] ✅ report.created, report.actioned
+  - [x] ✅ user.approved, user.rejected
+  - [x] ✅ server.online, server.offline
+  - [x] ✅ security.alert
 - [ ] Event middleware/filtering
 - [ ] Event persistence (optional)
 - [ ] Event replay capability
@@ -490,8 +526,8 @@ This document tracks major improvements and refactoring tasks for GoAdmin.
 | 🔴 Critical | Schema Normalization     | 2-3 days         | ✅ Complete |
 | 🔴 Critical | Audit Logging            | 3-4 days         | ✅ Complete |
 | 🟠 High     | Rate Limiting & Security | 2-3 days         | ✅ Complete |
+| 🟢 Medium   | Webhook System           | 2-3 days         | ✅ Complete |
 | 🟢 Medium   | Plugin System (Basic)    | 5-7 days         | 📋 Planned  |
-| 🟢 Medium   | Webhook System           | 2-3 days         | 📋 Planned  |
 | 🔵 Low      | Additional Improvements  | Ongoing          | 📋 Planned  |
 
 ## Implementation Order
@@ -508,11 +544,11 @@ This document tracks major improvements and refactoring tasks for GoAdmin.
    - ✅ Command sandboxing
    - ✅ Command validation
 
-3. **📋 Phase 3: Extensibility** (Week 3-4) - PLANNED
+3. **✅ Phase 3: Extensibility** (Week 3-4) - COMPLETED
 
-   - Event system
-   - Webhook system
-   - Basic plugin architecture
+   - ✅ Webhook system with retry logic
+   - ✅ Event dispatcher system
+   - ✅ HMAC webhook signing
 
 4. **📋 Phase 4: Polish** (Ongoing) - PLANNED
    - Testing

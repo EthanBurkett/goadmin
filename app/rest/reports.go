@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/ethanburkett/goadmin/app/models"
+	"github.com/ethanburkett/goadmin/app/webhook"
 	"github.com/gin-gonic/gin"
 )
 
@@ -160,13 +161,34 @@ func actionReport(api *Api) gin.HandlerFunc {
 			}
 
 			duration := time.Duration(*req.Duration) * time.Hour
-			_, err = models.CreateTempBan(report.ReportedName, report.ReportedGUID, req.Reason, duration, &uid)
+			tempBan, err := models.CreateTempBan(report.ReportedName, report.ReportedGUID, req.Reason, duration, &uid)
 			if err != nil {
 				Audit.LogTempBan(c, report.ReportedName, report.ReportedGUID, req.Reason, *req.Duration, false, err.Error())
 				c.Set("error", "Failed to create temporary ban")
 				c.Status(http.StatusInternalServerError)
 				return
 			}
+
+			// Dispatch webhook event
+			adminName := "unknown"
+			if userVal, exists := c.Get("user"); exists {
+				if user, ok := userVal.(*models.User); ok {
+					adminName = user.Username
+				}
+			}
+			go webhook.GlobalDispatcher.Dispatch(models.WebhookEventPlayerBanned, map[string]interface{}{
+				"player_name":    report.ReportedName,
+				"player_guid":    report.ReportedGUID,
+				"banned_by":      adminName,
+				"banned_by_id":   uid,
+				"reason":         req.Reason,
+				"duration":       strconv.Itoa(*req.Duration) + " hours",
+				"expires_at":     tempBan.ExpiresAt.Format(time.RFC3339),
+				"ban_type":       "temporary",
+				"source":         "web",
+				"report_id":      id,
+				"abuse_detected": banLoopResult.IsAbuse,
+			})
 
 			updates["status"] = "actioned"
 			updates["action_taken"] = "Temporarily banned for " + strconv.Itoa(*req.Duration) + " hours: " + req.Reason
@@ -191,6 +213,27 @@ func actionReport(api *Api) gin.HandlerFunc {
 			c.Status(http.StatusInternalServerError)
 			return
 		}
+
+		// Dispatch webhook event for report action
+		adminName := "unknown"
+		if userVal, exists := c.Get("user"); exists {
+			if user, ok := userVal.(*models.User); ok {
+				adminName = user.Username
+			}
+		}
+		go webhook.GlobalDispatcher.Dispatch(models.WebhookEventReportActioned, map[string]interface{}{
+			"report_id":      id,
+			"action":         req.Action,
+			"action_taken":   updates["action_taken"],
+			"actioned_by":    adminName,
+			"actioned_by_id": uid,
+			"reason":         req.Reason,
+			"reported_name":  report.ReportedName,
+			"reported_guid":  report.ReportedGUID,
+			"reporter_name":  report.ReporterName,
+			"reporter_guid":  report.ReporterGUID,
+			"source":         "web",
+		})
 
 		c.Set("data", gin.H{"message": "Report actioned successfully"})
 		c.Status(http.StatusOK)

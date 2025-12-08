@@ -5,16 +5,20 @@ import (
 	"time"
 
 	"github.com/ethanburkett/goadmin/app/config"
+	"github.com/ethanburkett/goadmin/app/database"
 	"github.com/ethanburkett/goadmin/app/logger"
 	"github.com/ethanburkett/goadmin/app/rcon"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type Api struct {
-	engine *gin.Engine
-	config *config.Config
-	rcon   *rcon.Client
+	engine     *gin.Engine
+	config     *config.Config
+	rcon       *rcon.Client
+	DB         *gorm.DB
+	migrations []database.MigrationDefinition
 }
 
 type ApiResponse struct {
@@ -24,7 +28,7 @@ type ApiResponse struct {
 	Error    interface{} `json:"error,omitempty"`
 }
 
-func New(cfg *config.Config, rconClient *rcon.Client) *Api {
+func New(cfg *config.Config, rconClient *rcon.Client, migrations []database.MigrationDefinition) *Api {
 	gin.DefaultWriter = logger.GinWriter{}
 	gin.DefaultErrorWriter = logger.GinWriter{}
 
@@ -54,9 +58,11 @@ func New(cfg *config.Config, rconClient *rcon.Client) *Api {
 	r.Use(ResponseMiddleware())
 
 	api := &Api{
-		engine: r,
-		config: cfg,
-		rcon:   rconClient,
+		engine:     r,
+		config:     cfg,
+		rcon:       rconClient,
+		DB:         database.DB,
+		migrations: migrations,
 	}
 
 	r.GET("/health", func(c *gin.Context) {
@@ -74,6 +80,8 @@ func New(cfg *config.Config, rconClient *rcon.Client) *Api {
 	RegisterReportRoutes(r, api)
 	RegisterIamGodRoute(r, api)
 	RegisterAuditRoutes(r, api)
+	RegisterWebhookRoutes(r, api)
+	RegisterMigrationRoutes(r, api)
 
 	rconClient.SendCommand("say ^5GoAdmin ^7now serving.")
 

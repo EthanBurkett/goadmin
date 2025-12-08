@@ -5,6 +5,7 @@ import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import routes from "../routes";
 import ReactQueryProvider from "@/providers/ReactQueryProvider";
 import { AuthProvider } from "@/providers/AuthProvider";
+import { Toaster } from "sonner";
 
 const router = createBrowserRouter(routes);
 
@@ -13,6 +14,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <ReactQueryProvider>
       <AuthProvider>
         <RouterProvider router={router} />
+        <Toaster position="top-right" richColors closeButton />
       </AuthProvider>
     </ReactQueryProvider>
   </React.StrictMode>

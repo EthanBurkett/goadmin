@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/ethanburkett/goadmin/app/database"
 	"github.com/ethanburkett/goadmin/app/models"
 	"github.com/gin-gonic/gin"
 )
@@ -46,6 +47,7 @@ func (ah *AuditHelper) LogAction(
 	}
 
 	_, err := models.CreateAuditLog(
+		database.DB,
 		userID,
 		username,
 		ipAddress,

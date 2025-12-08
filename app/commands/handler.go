@@ -15,6 +15,7 @@ import (
 
 type CommandHandler struct {
 	rcon           *rcon.Client
+	db             interface{}
 	callbacks      map[string]CommandCallback
 	recentCommands map[string]time.Time // Track recent commands to prevent duplicates
 	commandMutex   sync.Mutex           // Mutex for thread-safe access to recentCommands
@@ -22,9 +23,10 @@ type CommandHandler struct {
 
 type CommandCallback func(ch *CommandHandler, playerName, playerGUID string, args []string) error
 
-func NewCommandHandler(rconClient *rcon.Client) *CommandHandler {
+func NewCommandHandler(rconClient *rcon.Client, db interface{}) *CommandHandler {
 	handler := &CommandHandler{
 		rcon:           rconClient,
+		db:             db,
 		callbacks:      make(map[string]CommandCallback),
 		recentCommands: make(map[string]time.Time),
 	}

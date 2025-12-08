@@ -22,4 +22,6 @@ import Reports from "./src/pages/reports";
 routes.push({ path: "/reports", element: <Reports /> });
 import Status from "./src/pages/status";
 routes.push({ path: "/status", element: <Status /> });
+import Webhooks from "./src/pages/webhooks";
+routes.push({ path: "/webhooks", element: <Webhooks /> });
 export default routes;

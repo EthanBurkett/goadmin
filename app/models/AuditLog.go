@@ -3,7 +3,6 @@ package models
 import (
 	"time"
 
-	"github.com/ethanburkett/goadmin/app/database"
 	"gorm.io/gorm"
 )
 
@@ -32,6 +31,7 @@ const (
 	ActionLogout            ActionType = "logout"
 	ActionLoginFailed       ActionType = "login_failed"
 	ActionSecurityViolation ActionType = "security_violation"
+	ActionSystemChange      ActionType = "system_change"
 )
 
 // ActionSource represents where the action was initiated
@@ -77,6 +77,7 @@ type AuditLog struct {
 
 // CreateAuditLog creates a new audit log entry
 func CreateAuditLog(
+	db *gorm.DB,
 	userID *uint,
 	username string,
 	ipAddress string,
@@ -105,16 +106,16 @@ func CreateAuditLog(
 		Result:       result,
 	}
 
-	err := database.DB.Create(log).Error
+	err := db.Create(log).Error
 	return log, err
 }
 
 // GetAuditLogs retrieves audit logs with optional filters
-func GetAuditLogs(filters map[string]interface{}, limit int, offset int) ([]AuditLog, int64, error) {
+func GetAuditLogs(db *gorm.DB, filters map[string]interface{}, limit int, offset int) ([]AuditLog, int64, error) {
 	var logs []AuditLog
 	var total int64
 
-	query := database.DB.Model(&AuditLog{}).Preload("User")
+	query := db.Model(&AuditLog{}).Preload("User")
 
 	// Apply filters
 	if userID, ok := filters["user_id"]; ok {
@@ -153,9 +154,9 @@ func GetAuditLogs(filters map[string]interface{}, limit int, offset int) ([]Audi
 }
 
 // GetAuditLogsByUser retrieves audit logs for a specific user
-func GetAuditLogsByUser(userID uint, limit int) ([]AuditLog, error) {
+func GetAuditLogsByUser(db *gorm.DB, userID uint, limit int) ([]AuditLog, error) {
 	var logs []AuditLog
-	err := database.DB.Where("user_id = ?", userID).
+	err := db.Where("user_id = ?", userID).
 		Order("created_at DESC").
 		Limit(limit).
 		Find(&logs).Error
@@ -163,9 +164,9 @@ func GetAuditLogsByUser(userID uint, limit int) ([]AuditLog, error) {
 }
 
 // GetAuditLogsByAction retrieves audit logs for a specific action type
-func GetAuditLogsByAction(action ActionType, limit int) ([]AuditLog, error) {
+func GetAuditLogsByAction(db *gorm.DB, action ActionType, limit int) ([]AuditLog, error) {
 	var logs []AuditLog
-	err := database.DB.Where("action = ?", action).
+	err := db.Where("action = ?", action).
 		Order("created_at DESC").
 		Limit(limit).
 		Find(&logs).Error
@@ -173,9 +174,9 @@ func GetAuditLogsByAction(action ActionType, limit int) ([]AuditLog, error) {
 }
 
 // GetAuditLogsByTarget retrieves audit logs for a specific target
-func GetAuditLogsByTarget(targetType string, targetID string, limit int) ([]AuditLog, error) {
+func GetAuditLogsByTarget(db *gorm.DB, targetType string, targetID string, limit int) ([]AuditLog, error) {
 	var logs []AuditLog
-	err := database.DB.Where("target_type = ? AND target_id = ?", targetType, targetID).
+	err := db.Where("target_type = ? AND target_id = ?", targetType, targetID).
 		Order("created_at DESC").
 		Limit(limit).
 		Find(&logs).Error
@@ -183,9 +184,9 @@ func GetAuditLogsByTarget(targetType string, targetID string, limit int) ([]Audi
 }
 
 // GetRecentAuditLogs retrieves the most recent audit logs
-func GetRecentAuditLogs(limit int) ([]AuditLog, error) {
+func GetRecentAuditLogs(db *gorm.DB, limit int) ([]AuditLog, error) {
 	var logs []AuditLog
-	err := database.DB.Preload("User").
+	err := db.Preload("User").
 		Order("created_at DESC").
 		Limit(limit).
 		Find(&logs).Error

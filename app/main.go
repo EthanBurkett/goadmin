@@ -20,7 +20,9 @@ import (
 	"github.com/ethanburkett/goadmin/app/rcon"
 	"github.com/ethanburkett/goadmin/app/rest"
 	"github.com/ethanburkett/goadmin/app/watcher"
+	"github.com/ethanburkett/goadmin/app/webhook"
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 )
 
 func main() {
@@ -35,24 +37,25 @@ func main() {
 
 	database.Init()
 
-	database.AutoMigrate(
-		models.OfflinePlayer{},
-		models.User{},
-		models.Session{},
-		models.Role{},
-		models.Permission{},
-		models.Setting{},
-		models.CommandHistory{},
-		models.ServerStats{},
-		models.SystemStats{},
-		models.PlayerStats{},
-		models.Group{},
-		models.InGamePlayer{},
-		models.CustomCommand{},
-		models.Report{},
-		models.TempBan{},
-		models.AuditLog{},
-	)
+	// Run database migrations using versioned migration system
+	logger.Info("Running database migrations...")
+
+	// First ensure migrations table exists
+	database.AutoMigrate(&models.Migration{}, &models.MigrationHistory{})
+
+	// Initialize migration runner
+	migrationRunner := database.NewMigrationRunner(database.DB)
+	for _, migration := range getMigrations() {
+		migrationRunner.Register(migration)
+	}
+
+	// Apply all pending migrations
+	if err := migrationRunner.ApplyAll(); err != nil {
+		logger.Error("Failed to run migrations", zap.Error(err))
+		panic(err)
+	}
+
+	logger.Info("Database migrations completed successfully")
 
 	initializeSuperAdminRole()
 	initializeViewerRole()
@@ -76,7 +79,7 @@ func main() {
 
 	restServer := &http.Server{
 		Addr:    fmt.Sprintf(":%d", cfg.RestPort),
-		Handler: rest.New(cfg, rconClient).Engine(),
+		Handler: rest.New(cfg, rconClient, getMigrations()).Engine(),
 	}
 
 	go func() {
@@ -92,6 +95,9 @@ func main() {
 	statsCollector := watcher.NewStatsCollector(rconClient)
 	statsCollector.Start()
 	defer statsCollector.Stop()
+
+	// Start webhook retry worker
+	go webhook.GlobalDispatcher.StartRetryWorker()
 
 	go startTempBanChecker()
 
@@ -408,7 +414,7 @@ func initializeDefaultCommands() {
 func startGamesMpWatcher(cfg *config.Config, rconClient *rcon.Client) {
 	changesChan := watcher.WatchGamesMp(cfg)
 
-	cmdHandler := commands.NewCommandHandler(rconClient)
+	cmdHandler := commands.NewCommandHandler(rconClient, database.DB)
 
 	for event := range changesChan {
 		entry, ok := parser.ParseGamesMpLine(event.NewLine)
@@ -464,5 +470,93 @@ func startTempBanChecker() {
 		if err := models.ExpireTempBans(); err != nil {
 			logger.Error("Failed to expire temp bans", zap.Error(err))
 		}
+	}
+}
+
+// getMigrations returns all defined migrations
+func getMigrations() []database.MigrationDefinition {
+	return []database.MigrationDefinition{
+		{
+			Version:     "001",
+			Name:        "initial_schema",
+			Description: "Create initial database schema with core tables",
+			Up: func(db *gorm.DB) error {
+				return db.AutoMigrate(
+					&models.User{},
+					&models.Session{},
+					&models.Role{},
+					&models.Permission{},
+					&models.Group{},
+					&models.CustomCommand{},
+					&models.Report{},
+					&models.TempBan{},
+					&models.CommandHistory{},
+					&models.ServerStats{},
+					&models.Setting{},
+					&models.OfflinePlayer{},
+				)
+			},
+			Down: func(db *gorm.DB) error {
+				return db.Migrator().DropTable(
+					&models.User{},
+					&models.Session{},
+					&models.Role{},
+					&models.Permission{},
+					&models.Group{},
+					&models.CustomCommand{},
+					&models.Report{},
+					&models.TempBan{},
+					&models.CommandHistory{},
+					&models.ServerStats{},
+					&models.Setting{},
+					&models.OfflinePlayer{},
+				)
+			},
+		},
+		{
+			Version:     "002",
+			Name:        "add_audit_logs",
+			Description: "Add audit logging table for tracking admin actions",
+			Up: func(db *gorm.DB) error {
+				return db.AutoMigrate(&models.AuditLog{})
+			},
+			Down: func(db *gorm.DB) error {
+				return db.Migrator().DropTable(&models.AuditLog{})
+			},
+		},
+		{
+			Version:     "003",
+			Name:        "add_webhooks",
+			Description: "Add webhook system tables for event notifications",
+			Up: func(db *gorm.DB) error {
+				return db.AutoMigrate(
+					&models.Webhook{},
+					&models.WebhookDelivery{},
+				)
+			},
+			Down: func(db *gorm.DB) error {
+				return db.Migrator().DropTable(
+					&models.Webhook{},
+					&models.WebhookDelivery{},
+				)
+			},
+		},
+		{
+			Version:     "004",
+			Name:        "add_migration_tracking",
+			Description: "Add migration tracking tables for version control",
+			Up: func(db *gorm.DB) error {
+				return db.AutoMigrate(
+					&models.Migration{},
+					&models.MigrationHistory{},
+				)
+			},
+			Down: func(db *gorm.DB) error {
+				return db.Migrator().DropTable(
+					&models.Migration{},
+					&models.MigrationHistory{},
+				)
+			},
+		},
 	}
 }

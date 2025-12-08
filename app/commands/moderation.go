@@ -8,6 +8,8 @@ import (
 
 	"github.com/ethanburkett/goadmin/app/logger"
 	"github.com/ethanburkett/goadmin/app/models"
+	"github.com/ethanburkett/goadmin/app/webhook"
+	"gorm.io/gorm"
 )
 
 // handleReportCommand allows players to report others
@@ -51,6 +53,19 @@ func (ch *CommandHandler) handleReportCommand(ch2 *CommandHandler, playerName, p
 		ch.sendPlayerMessage(playerName, "Failed to submit report")
 		return err
 	}
+
+	// Dispatch webhook event
+	go webhook.GlobalDispatcher.Dispatch(models.WebhookEventReportCreated, map[string]interface{}{
+		"report_id":     report.ID,
+		"reporter_name": playerName,
+		"reporter_guid": playerGUID,
+		"reported_name": reportedPlayerName,
+		"reported_guid": reportedGUID,
+		"reason":        reason,
+		"status":        report.Status,
+		"source":        "in-game",
+		"created_at":    report.CreatedAt.Format(time.RFC3339),
+	})
 
 	ch.sendPlayerMessage(playerName, fmt.Sprintf("^2Report submitted for %s (ID: #%d)", reportedPlayerName, report.ID))
 	logger.Info(fmt.Sprintf("Player %s reported %s (GUID: %s) for: %s", playerName, reportedPlayerName, reportedGUID, reason))
@@ -157,8 +172,24 @@ func (ch *CommandHandler) handleTempBanCommand(ch2 *CommandHandler, playerName, 
 		return err
 	}
 
+	// Dispatch webhook event
+	go webhook.GlobalDispatcher.Dispatch(models.WebhookEventPlayerBanned, map[string]interface{}{
+		"player_name":    bannedPlayerName,
+		"player_guid":    bannedGUID,
+		"banned_by":      playerName,
+		"reason":         reason,
+		"duration":       durationStr,
+		"expires_at":     tempBan.ExpiresAt.Format(time.RFC3339),
+		"ban_type":       "temporary",
+		"source":         "in-game",
+		"recent_bans":    banLoopResult.RecentBanCount,
+		"time_window":    banLoopResult.TimeWindow.String(),
+		"abuse_detected": banLoopResult.IsAbuse,
+	})
+
 	// Log audit entry for in-game temp ban
 	models.CreateAuditLog(
+		ch.db.(*gorm.DB),
 		nil,
 		playerName,
 		"",
