@@ -149,9 +149,10 @@ GoAdmin monitors the `games_mp.log` file for real-time events. Ensure the path i
 
 1. Start both backend and frontend
 2. Navigate to `http://localhost:5173`
-3. Register a new account (requires admin approval)
-4. The first user should use `!iamgod` in-game to claim Owner privileges
-5. Approve other users through the RBAC management panel
+3. Register your account
+4. Head to `http://localhost:8080/auth/iamgod` in a separate tab, or if you changed the rest port, use that port. This will allow the first user to claim Owner privileges for the dashboard.
+5. The first user should use `!iamgod` in-game to claim Owner privileges
+6. Approve other users through the RBAC management panel
 
 ## Usage
 
@@ -195,30 +196,6 @@ Assign players to groups using `!putgroup <player> <group>` in-game or through t
    - **Permanent Ban**: Issue permanent RCON ban
 
 ## Development
-
-### Project Structure
-
-```
-goadmin/
-├── app/
-│   ├── commands/       # In-game command handlers
-│   ├── config/         # Configuration management
-│   ├── database/       # Database initialization
-│   ├── logger/         # Logging utilities
-│   ├── models/         # Database models
-│   ├── parser/         # Log file parser
-│   ├── rcon/           # RCON client
-│   ├── rest/           # REST API endpoints
-│   └── watcher/        # File watcher and stats
-├── frontend/
-│   └── src/
-│       ├── components/ # React components
-│       ├── hooks/      # Custom React hooks
-│       ├── pages/      # Page components
-│       ├── providers/  # Context providers
-│       └── types/      # TypeScript types
-└── config.json         # Runtime configuration
-```
 
 ### Building for Production
 

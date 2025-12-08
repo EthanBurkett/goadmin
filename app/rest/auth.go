@@ -90,6 +90,15 @@ func register(api *Api) gin.HandlerFunc {
 			return
 		}
 
+		session, err := models.CreateSession(user.ID)
+		if err != nil {
+			c.Set("error", "Failed to create session")
+			c.Status(http.StatusInternalServerError)
+			return
+		}
+
+		c.SetCookie("session_token", session.Token, 30*24*60*60, "/", "", false, true)
+
 		c.Set("data", gin.H{
 			"message": "Registration successful. Your account is pending approval.",
 			"user": gin.H{

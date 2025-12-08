@@ -3,6 +3,7 @@ package rest
 import (
 	"net/http"
 
+	"github.com/ethanburkett/goadmin/app/database"
 	"github.com/ethanburkett/goadmin/app/models"
 	"github.com/gin-gonic/gin"
 )
@@ -52,6 +53,14 @@ func iamGod(api *Api) gin.HandlerFunc {
 		// Assign super admin role to user
 		if err := models.AddRoleToUser(user.ID, superAdminRole.ID); err != nil {
 			c.Set("error", "Failed to assign super admin role")
+			c.Status(http.StatusInternalServerError)
+			return
+		}
+
+		// Approve the user so they can access the dashboard
+		user.Approved = true
+		if err := database.DB.Save(user).Error; err != nil {
+			c.Set("error", "Failed to approve user")
 			c.Status(http.StatusInternalServerError)
 			return
 		}
