@@ -2,6 +2,12 @@
 
 A modern web-based administration panel for Call of Duty 4 (CoD4) game servers with advanced player management, RBAC (Role-Based Access Control), and in-game command system.
 
+## Screenshots
+
+![Analytics](images/showcase-1.png)
+![RCON Console](images/showcase-2.png)
+![Custom Commands](images/showcase-3.png)
+
 ## Features
 
 ### Web Dashboard
