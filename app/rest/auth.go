@@ -148,6 +148,12 @@ func getMe(api *Api) gin.HandlerFunc {
 			return
 		}
 
+		if !user.Approved {
+			c.Set("error", "Your account is pending approval. Please wait for an administrator to approve your registration.")
+			c.Status(http.StatusForbidden)
+			return
+		}
+
 		c.Set("data", gin.H{
 			"user": user,
 		})
