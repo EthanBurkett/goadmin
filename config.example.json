@@ -1,0 +1,10 @@
+{
+  "server": {
+    "host": "localhost",
+    "port": 28960,
+    "rcon_password": "your_rcon_password_here"
+  },
+  "games_mp_path": "...\\Call of Duty 4\\Mods\\your_mod\\games_mp.log",
+  "rest_port": 8080,
+  "environment": "development | production"
+}

@@ -1,0 +1,148 @@
+package commands
+
+import (
+	"fmt"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/ethanburkett/goadmin/app/logger"
+	"github.com/ethanburkett/goadmin/app/models"
+)
+
+// handleReportCommand allows players to report others
+func (ch *CommandHandler) handleReportCommand(ch2 *CommandHandler, playerName, playerGUID string, args []string) error {
+	if len(args) < 2 {
+		ch.sendPlayerMessage(playerName, "Usage: !report <player> <reason>")
+		return nil
+	}
+
+	reportedPlayerName := args[0]
+	reason := strings.Join(args[1:], " ")
+
+	status, err := ch.rcon.Status()
+	if err != nil {
+		ch.sendPlayerMessage(playerName, "Failed to get server status")
+		return err
+	}
+
+	var reportedGUID string
+	searchName := strings.ToLower(reportedPlayerName)
+	for _, player := range status.Players {
+		if strings.ToLower(player.StrippedName) == searchName || strings.Contains(strings.ToLower(player.StrippedName), searchName) {
+			reportedGUID = player.Uuid
+			reportedPlayerName = player.StrippedName
+			break
+		}
+	}
+
+	if reportedGUID == "" {
+		ch.sendPlayerMessage(playerName, fmt.Sprintf("Player '%s' not found online", reportedPlayerName))
+		return nil
+	}
+
+	report, err := models.CreateReport(playerName, playerGUID, reportedPlayerName, reportedGUID, reason)
+	if err != nil {
+		ch.sendPlayerMessage(playerName, "Failed to submit report")
+		return err
+	}
+
+	ch.sendPlayerMessage(playerName, fmt.Sprintf("^2Report submitted for %s (ID: #%d)", reportedPlayerName, report.ID))
+	logger.Info(fmt.Sprintf("Player %s reported %s (GUID: %s) for: %s", playerName, reportedPlayerName, reportedGUID, reason))
+
+	return nil
+}
+
+// parseDuration parses duration strings like "5m", "2h", "3d", "1M", "2y"
+func parseDuration(input string) (time.Duration, error) {
+	if len(input) < 2 {
+		return 0, fmt.Errorf("invalid duration format")
+	}
+
+	numStr := input[:len(input)-1]
+	unit := input[len(input)-1:]
+
+	num, err := strconv.Atoi(numStr)
+	if err != nil {
+		return 0, fmt.Errorf("invalid number in duration: %s", numStr)
+	}
+
+	if num <= 0 {
+		return 0, fmt.Errorf("duration must be positive")
+	}
+
+	switch unit {
+	case "m":
+		return time.Duration(num) * time.Minute, nil
+	case "h":
+		return time.Duration(num) * time.Hour, nil
+	case "d":
+		return time.Duration(num) * 24 * time.Hour, nil
+	case "M":
+		return time.Duration(num) * 30 * 24 * time.Hour, nil
+	case "y":
+		return time.Duration(num) * 365 * 24 * time.Hour, nil
+	default:
+		return 0, fmt.Errorf("invalid duration unit: %s (use m, h, d, M, or y)", unit)
+	}
+}
+
+// handleTempBanCommand temporarily bans a player for a specified duration
+func (ch *CommandHandler) handleTempBanCommand(ch2 *CommandHandler, playerName, playerGUID string, args []string) error {
+	if len(args) < 3 {
+		ch.sendPlayerMessage(playerName, "Usage: !tempban <player> <duration> <reason>")
+		ch.sendPlayerMessage(playerName, "Duration format: {number}{m/h/d/M/y} (e.g., 5m, 2h, 3d, 1M, 2y)")
+		return nil
+	}
+
+	bannedPlayerName := args[0]
+	durationStr := args[1]
+	reason := strings.Join(args[2:], " ")
+
+	duration, err := parseDuration(durationStr)
+	if err != nil {
+		ch.sendPlayerMessage(playerName, fmt.Sprintf("Invalid duration: %v", err))
+		ch.sendPlayerMessage(playerName, "Duration format: {number}{m/h/d/M/y} (e.g., 5m, 2h, 3d, 1M, 2y)")
+		return nil
+	}
+
+	status, err := ch.rcon.Status()
+	if err != nil {
+		ch.sendPlayerMessage(playerName, "Failed to get server status")
+		return err
+	}
+
+	var bannedGUID string
+	var bannedEntityID int
+	searchName := strings.ToLower(bannedPlayerName)
+	for _, player := range status.Players {
+		if strings.ToLower(player.StrippedName) == searchName || strings.Contains(strings.ToLower(player.StrippedName), searchName) {
+			bannedGUID = player.Uuid
+			bannedPlayerName = player.StrippedName
+			bannedEntityID = player.ID
+			break
+		}
+	}
+
+	if bannedGUID == "" {
+		ch.sendPlayerMessage(playerName, fmt.Sprintf("Player '%s' not found online", bannedPlayerName))
+		return nil
+	}
+
+	tempBan, err := models.CreateTempBan(bannedPlayerName, bannedGUID, reason, duration, nil)
+	if err != nil {
+		ch.sendPlayerMessage(playerName, "Failed to create temp ban")
+		return err
+	}
+
+	kickCmd := fmt.Sprintf("clientkick %d \"Temp banned: %s (Expires: %s)\"",
+		bannedEntityID,
+		reason,
+		tempBan.ExpiresAt.Format("2006-01-02 15:04"))
+	ch.rcon.SendCommand(kickCmd)
+
+	ch.sendPlayerMessage(playerName, fmt.Sprintf("^2%s has been temp banned for %s", bannedPlayerName, durationStr))
+	logger.Info(fmt.Sprintf("Player %s temp banned %s (GUID: %s) for %s: %s", playerName, bannedPlayerName, bannedGUID, durationStr, reason))
+
+	return nil
+}

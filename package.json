@@ -1,0 +1,9 @@
+{
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  },
+  "scripts": {
+    "dev": "concurrently --kill-others --names \"backend,frontend\" --prefix-colors \"blue,magenta\" \"air\" \"cd frontend && pnpm dev\"",
+    "clean": "powershell -Command \"Stop-Process -Name 'air','main' -Force -ErrorAction SilentlyContinue; Remove-Item -Path tmp -Recurse -Force -ErrorAction SilentlyContinue\""
+  }
+}

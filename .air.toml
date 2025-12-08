@@ -1,0 +1,14 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  entry = "app/main.go"
+  output = "tmp/main.exe"
+  cmd = "go build -o tmp/main.exe ./app"
+  include_ext = ["go"]
+  exclude_dir = ["tmp", "node_modules", "frontend"]
+  kill_delay = "500ms"
+  send_interrupt = true
+  
+[log]
+  main_only = false
