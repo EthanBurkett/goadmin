@@ -129,26 +129,6 @@ pnpm run deps
 pnpm dev
 ```
 
-### Frontend Setup
-
-1. Navigate to frontend directory:
-
-```bash
-cd frontend
-```
-
-2. Install dependencies:
-
-```bash
-pnpm install
-```
-
-3. Start development server:
-
-```bash
-pnpm dev
-```
-
 The dashboard will be available at `http://localhost:5173`
 
 ## Configuration
