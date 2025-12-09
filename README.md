@@ -171,55 +171,47 @@ Review and action player reports via Reports page.
 
 ## Development
 
-### Building for Production
-
-Backend:
+### Build
 
 ```bash
+# Backend
+go build -o goadmin app/main.go
+
+# Frontend
+cd frontend && pnpm build
+```
+
+### Plugins
+
+```bash
+# Create plugin
+plugins/myplugin/myplugin.go
+
+# Auto-import and rebuild
+.\scripts\build_plugins.ps1
 go build -o goadmin app/main.go
 ```
 
-Frontend:
-
-```bash
-cd frontend
-pnpm build
-```
-
-### Creating Plugins
-
-1. Create plugin file: `plugins/myplugin/myplugin.go`
-2. Implement the `Plugin` interface
-3. Run `.\scripts\build_plugins.ps1` to auto-import
-4. Rebuild and restart
-
-See **[PLUGINS.md](PLUGINS.md)** for complete documentation.
+See [PLUGINS.md](PLUGINS.md) for details.
 
 ## Security
 
-- **Password Hashing**: bcrypt with salt rounds
-- **Session Tokens**: Secure random tokens with expiration
-- **RBAC**: Fine-grained permission system
-- **User Approval**: Admin-approved registration
-- **Command Validation**: Power and permission checks
+- bcrypt password hashing
+- Session token expiration
+- Fine-grained RBAC
+- Admin-approved registration
+- Command power/permission validation
 
 ## Contributing
 
-Contributions are welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
+1. Fork repository
+2. Create feature branch
+3. Submit pull request
 
 ## License
 
-MIT License - See LICENSE file for details
-
-## Support
-
-For issues, questions, or feature requests, please open an issue on GitHub.
+MIT License
 
 ## Credits
 
-Built with inspiration from B3 (BigBrotherBot) admin system for CoD4 servers.
+Inspired by B3 (BigBrotherBot) admin system.
