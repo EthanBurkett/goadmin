@@ -146,44 +146,28 @@ Dashboard: `http://localhost:5173`
 
 ## Usage
 
-### Creating Custom Commands
+### Custom Commands
 
-1. Navigate to Commands in the dashboard
-2. Click "Create Command"
-3. Configure:
-   - **Name**: Command name (used as `!commandname`)
-   - **Usage**: Help text shown to users
-   - **Description**: Detailed explanation
-   - **RCON Command**: Template with placeholders
-   - **Min Power**: Minimum group power required
-   - **Permissions**: Required permission array
-   - **Requirement Type**: `power`, `permission`, or `both`
+Create commands via dashboard with placeholders:
 
-Example - Custom say command:
+- `{arg0}`, `{arg1}` - Arguments
+- `{player}`, `{guid}` - Player info
+- `{playerId:arg0}` - Resolve player to ID
+- `{argsFrom:1}` - Join remaining args
 
-- Name: `announce`
-- RCON: `say ^1[SERVER] ^7{argsFrom:0}`
-- Min Power: 50
-- Permissions: `["say"]`
+Example: `say ^1[SERVER] ^7{argsFrom:0}` with min power 50
 
-### Managing Groups
+### Groups
 
-Groups control in-game player privileges:
+- **Owner (100)** - Full control
+- **Admin (50)** - Moderation
+- **VIP (10)** - Basic privileges
 
-- **Owner (100)**: Full server control
-- **Admin (50)**: Moderation and game management
-- **VIP (10)**: Basic privileges
+Assign via `!putgroup <player> <group>` or dashboard.
 
-Assign players to groups using `!putgroup <player> <group>` in-game or through the dashboard.
+### Reports
 
-### Reviewing Reports
-
-1. Navigate to Reports in dashboard
-2. Review pending reports
-3. Take action:
-   - **Dismiss**: Close the report
-   - **Temp Ban**: Issue time-limited ban
-   - **Permanent Ban**: Issue permanent RCON ban
+Review and action player reports via Reports page.
 
 ## Development
 
