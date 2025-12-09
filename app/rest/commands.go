@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/ethanburkett/goadmin/app/models"
+	"github.com/ethanburkett/goadmin/app/plugins"
 	"github.com/gin-gonic/gin"
 )
 
@@ -47,14 +48,46 @@ func RegisterCommandRoutes(r *gin.Engine, api *Api) {
 
 func getAllCommands(api *Api) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		commands, err := models.GetAllCustomCommands()
+		// Get custom commands from database
+		customCommands, err := models.GetAllCustomCommands()
 		if err != nil {
 			c.Set("error", "Failed to retrieve commands")
 			c.Status(http.StatusInternalServerError)
 			return
 		}
 
-		c.Set("data", commands)
+		// Get plugin commands
+		pluginCommands := []map[string]interface{}{}
+		if plugins.GlobalPluginManager != nil {
+			cmdAPI := plugins.GlobalPluginManager.GetCommandAPI()
+			if cmdAPI != nil {
+				registeredCmds := cmdAPI.GetRegisteredCommands()
+				for name, def := range registeredCmds {
+					pluginCommands = append(pluginCommands, map[string]interface{}{
+						"id":              0, // Plugin commands don't have DB IDs
+						"name":            name,
+						"usage":           def.Usage,
+						"description":     def.Description,
+						"rconCommand":     "", // Plugin commands use Go handlers
+						"minArgs":         def.MinArgs,
+						"maxArgs":         def.MaxArgs,
+						"minPower":        def.MinPower,
+						"permissions":     def.Permissions,
+						"requirementType": "", // Could be inferred from MinPower/Permissions
+						"enabled":         true,
+						"isPlugin":        true, // Mark as plugin command
+					})
+				}
+			}
+		}
+
+		// Combine both lists
+		response := map[string]interface{}{
+			"customCommands": customCommands,
+			"pluginCommands": pluginCommands,
+		}
+
+		c.Set("data", response)
 		c.Status(http.StatusOK)
 	}
 }

@@ -16,6 +16,12 @@ export interface CustomCommand {
   enabled: boolean;
   createdAt: string;
   updatedAt: string;
+  isPlugin?: boolean; // Plugin commands flag
+}
+
+export interface CommandsResponse {
+  customCommands: CustomCommand[];
+  pluginCommands: CustomCommand[];
 }
 
 export interface CreateCommandRequest {
@@ -44,10 +50,10 @@ export interface UpdateCommandRequest {
 }
 
 export const useCommands = () => {
-  return useQuery<CustomCommand[]>({
+  return useQuery<CommandsResponse>({
     queryKey: ["commands"],
     queryFn: async () => {
-      const response = await api.get<CustomCommand[]>("/commands");
+      const response = await api.get<CommandsResponse>("/commands");
       return response;
     },
   });

@@ -43,6 +43,7 @@ import {
   Check,
   X,
   Search,
+  Plug,
 } from "lucide-react";
 
 function Commands() {
@@ -200,7 +201,13 @@ function Commands() {
   const filteredCommands = useMemo(() => {
     if (!commands) return [];
 
-    return commands.filter((cmd) => {
+    // Combine both custom and plugin commands
+    const allCommands = [
+      ...commands.customCommands,
+      ...commands.pluginCommands,
+    ];
+
+    return allCommands.filter((cmd) => {
       // Search filter
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
@@ -549,7 +556,9 @@ function Commands() {
               </div>
             </div>
             <div className="mt-4 text-sm text-muted-foreground">
-              Showing {filteredCommands?.length || 0} of {commands?.length || 0}{" "}
+              Showing {filteredCommands?.length || 0} of{" "}
+              {(commands?.customCommands?.length || 0) +
+                (commands?.pluginCommands?.length || 0)}{" "}
               commands
             </div>
           </CardContent>
@@ -563,7 +572,10 @@ function Commands() {
             </div>
           ) : filteredCommands && filteredCommands.length > 0 ? (
             filteredCommands.map((cmd) => (
-              <Card key={cmd.id} className={!cmd.enabled ? "opacity-50" : ""}>
+              <Card
+                key={cmd.id || cmd.name}
+                className={!cmd.enabled ? "opacity-50" : ""}
+              >
                 <CardHeader>
                   <div className="flex justify-between items-start">
                     <div className="flex items-center space-x-2">
@@ -571,6 +583,12 @@ function Commands() {
                       <CardTitle className="font-mono">!{cmd.name}</CardTitle>
                     </div>
                     <div className="flex items-center space-x-2">
+                      {cmd.isPlugin && (
+                        <Badge variant="secondary" className="text-purple-500">
+                          <Plug className="h-3 w-3 mr-1" />
+                          Plugin
+                        </Badge>
+                      )}
                       {cmd.isBuiltIn && (
                         <Badge variant="secondary" className="text-blue-500">
                           Built-in
@@ -611,7 +629,9 @@ function Commands() {
                     </div>
                     <div className="text-sm font-mono bg-muted/30 p-2 rounded border border-border">
                       {cmd.rconCommand ||
-                        (cmd.isBuiltIn ? "(Go callback function)" : "(empty)")}
+                        (cmd.isBuiltIn || cmd.isPlugin
+                          ? "(Go callback function)"
+                          : "(empty)")}
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-sm">
@@ -659,7 +679,7 @@ function Commands() {
                       size="sm"
                       onClick={() => handleToggleEnabled(cmd)}
                       className="flex-1"
-                      disabled={cmd.isBuiltIn}
+                      disabled={cmd.isBuiltIn || cmd.isPlugin}
                     >
                       {cmd.enabled ? "Disable" : "Enable"}
                     </Button>
@@ -667,7 +687,7 @@ function Commands() {
                       variant="outline"
                       size="sm"
                       onClick={() => openEditDialog(cmd)}
-                      disabled={cmd.isBuiltIn}
+                      disabled={cmd.isBuiltIn || cmd.isPlugin}
                     >
                       <Edit className="h-3 w-3" />
                     </Button>
@@ -675,7 +695,7 @@ function Commands() {
                       variant="destructive"
                       size="sm"
                       onClick={() => handleDeleteCommand(cmd.id)}
-                      disabled={cmd.isBuiltIn}
+                      disabled={cmd.isBuiltIn || cmd.isPlugin}
                     >
                       <Trash2 className="h-3 w-3" />
                     </Button>

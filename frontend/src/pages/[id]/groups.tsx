@@ -65,7 +65,14 @@ function Groups() {
     if (!commands) return [];
 
     const permissionSet = new Set<string>();
-    commands.forEach((cmd) => {
+
+    // Combine both custom and plugin commands
+    const allCommands = [
+      ...commands.customCommands,
+      ...commands.pluginCommands,
+    ];
+
+    allCommands.forEach((cmd) => {
       if (cmd.permissions) {
         try {
           const perms = JSON.parse(cmd.permissions);
