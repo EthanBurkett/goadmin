@@ -4,6 +4,8 @@ import Index from "./src/pages/index";
 routes.push({ path: "/", element: <Index /> });
 import Login from "./src/pages/login";
 routes.push({ path: "/login", element: <Login /> });
+import Plugins from "./src/pages/plugins";
+routes.push({ path: "/plugins", element: <Plugins /> });
 import Servers from "./src/pages/servers";
 routes.push({ path: "/servers", element: <Servers /> });
 import IdLayout from "./src/pages/[id]/layout";

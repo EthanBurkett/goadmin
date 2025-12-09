@@ -17,10 +17,15 @@ import (
 	"github.com/ethanburkett/goadmin/app/logger"
 	"github.com/ethanburkett/goadmin/app/models"
 	"github.com/ethanburkett/goadmin/app/parser"
+	"github.com/ethanburkett/goadmin/app/plugins"
 	"github.com/ethanburkett/goadmin/app/rcon"
 	"github.com/ethanburkett/goadmin/app/rest"
 	"github.com/ethanburkett/goadmin/app/watcher"
 	"github.com/ethanburkett/goadmin/app/webhook"
+
+	// Import plugins to register them
+	_ "github.com/ethanburkett/goadmin/plugins/examples/auto-messages"
+	_ "github.com/ethanburkett/goadmin/plugins/examples/example"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -34,6 +39,9 @@ func main() {
 	defer logger.Log.Sync()
 
 	logger.Info("GoAdmin starting...")
+
+	// Initialize plugin manager
+	plugins.GlobalPluginManager = plugins.NewManager()
 
 	database.Init()
 
@@ -100,6 +108,19 @@ func main() {
 	// Start webhook retry worker
 	go webhook.GlobalDispatcher.StartRetryWorker()
 
+	// Initialize RCON API for plugins
+	rconAPI := plugins.NewRCONAPI(rconClient)
+	plugins.GlobalPluginManager.SetRCONClient(rconAPI)
+
+	// Load and start plugins
+	logger.Info("Loading plugins...")
+	if err := plugins.GlobalPluginManager.LoadAll(); err != nil {
+		logger.Error("Failed to load plugins", zap.Error(err))
+	}
+	if err := plugins.GlobalPluginManager.StartAll(); err != nil {
+		logger.Error("Failed to start plugins", zap.Error(err))
+	}
+
 	go startTempBanChecker()
 
 	sigChan := make(chan os.Signal, 1)
@@ -107,6 +128,12 @@ func main() {
 	<-sigChan
 
 	logger.Info("Shutting down gracefully...")
+
+	// Stop all plugins
+	logger.Info("Stopping plugins...")
+	if err := plugins.GlobalPluginManager.StopAll(); err != nil {
+		logger.Error("Failed to stop plugins", zap.Error(err))
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -152,6 +179,8 @@ func initializeSuperAdminRole() {
 		{"groups.manage", "Manage in-game groups"},
 		{"commands.manage", "Manage custom commands"},
 		{"servers.manage", "Manage server instances"},
+		{"plugins.view", "View plugin list and status"},
+		{"plugins.manage", "Manage plugins (start, stop, reload)"},
 	}
 
 	for _, perm := range permissions {
@@ -467,6 +496,9 @@ func startGamesMpWatcher(cfg *config.Config, rconClient *rcon.Client) {
 
 	cmdHandler := commands.NewCommandHandler(rconClient, database.DB)
 
+	// Link plugin command API to command handler
+	cmdHandler.SetPluginCommandAPI(plugins.GlobalPluginManager.GetCommandAPI())
+
 	for event := range changesChan {
 		entry, ok := parser.ParseGamesMpLine(event.NewLine)
 		if !ok {
@@ -495,6 +527,13 @@ func startGamesMpWatcher(cfg *config.Config, rconClient *rcon.Client) {
 			fmt.Printf("[JOIN] %s (GUID: %s, ID: %s) joined the server\n", entry.PlayerName, entry.PlayerGUID, entry.PlayerID)
 			models.CreateOrUpdateInGamePlayer(entry.PlayerGUID, entry.PlayerName)
 
+			// Publish player.connect event
+			plugins.GlobalEventBus.Publish("player.connect", map[string]interface{}{
+				"playerName": entry.PlayerName,
+				"playerGUID": entry.PlayerGUID,
+				"playerID":   entry.PlayerID,
+			})
+
 			if models.IsPlayerTempBanned(entry.PlayerGUID) {
 				ban, _ := models.GetTempBanByGUID(entry.PlayerGUID)
 				if ban != nil {
@@ -509,6 +548,13 @@ func startGamesMpWatcher(cfg *config.Config, rconClient *rcon.Client) {
 
 		case parser.LEAVE:
 			fmt.Printf("[LEAVE] %s (GUID: %s, ID: %s) left the server\n", entry.PlayerName, entry.PlayerGUID, entry.PlayerID)
+
+			// Publish player.disconnect event
+			plugins.GlobalEventBus.Publish("player.disconnect", map[string]interface{}{
+				"playerName": entry.PlayerName,
+				"playerGUID": entry.PlayerGUID,
+				"playerID":   entry.PlayerID,
+			})
 		}
 	}
 }

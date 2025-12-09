@@ -10,15 +10,17 @@ import (
 
 	"github.com/ethanburkett/goadmin/app/logger"
 	"github.com/ethanburkett/goadmin/app/models"
+	"github.com/ethanburkett/goadmin/app/plugins"
 	"github.com/ethanburkett/goadmin/app/rcon"
 )
 
 type CommandHandler struct {
-	rcon           *rcon.Client
-	db             interface{}
-	callbacks      map[string]CommandCallback
-	recentCommands map[string]time.Time // Track recent commands to prevent duplicates
-	commandMutex   sync.Mutex           // Mutex for thread-safe access to recentCommands
+	rcon             *rcon.Client
+	db               interface{}
+	callbacks        map[string]CommandCallback
+	recentCommands   map[string]time.Time // Track recent commands to prevent duplicates
+	commandMutex     sync.Mutex           // Mutex for thread-safe access to recentCommands
+	pluginCommandAPI *plugins.CommandAPIImpl
 }
 
 type CommandCallback func(ch *CommandHandler, playerName, playerGUID string, args []string) error
@@ -37,6 +39,11 @@ func NewCommandHandler(rconClient *rcon.Client, db interface{}) *CommandHandler 
 	go handler.cleanupRecentCommands()
 
 	return handler
+}
+
+// SetPluginCommandAPI sets the plugin command API
+func (ch *CommandHandler) SetPluginCommandAPI(api *plugins.CommandAPIImpl) {
+	ch.pluginCommandAPI = api
 }
 
 // cleanupRecentCommands periodically removes old command entries
@@ -95,6 +102,19 @@ func (ch *CommandHandler) ProcessChatCommand(playerName, playerGUID, message str
 
 	if commandName == "iamgod" {
 		return ch.processIamGod(playerName, playerGUID)
+	}
+
+	// Check if it's a plugin command first
+	if ch.pluginCommandAPI != nil {
+		if err := ch.pluginCommandAPI.ProcessPluginCommand(playerName, playerGUID, commandName, args); err != nil {
+			// Command was handled by plugin but errored
+			return err
+		}
+		// Check if command was handled by a plugin
+		pluginCmds := ch.pluginCommandAPI.GetRegisteredCommands()
+		if _, isPluginCmd := pluginCmds[commandName]; isPluginCmd {
+			return nil // Command was handled by plugin
+		}
 	}
 
 	if callback, exists := ch.callbacks[commandName]; exists {

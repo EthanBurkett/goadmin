@@ -79,6 +79,7 @@ func New(cfg *config.Config, rconClient *rcon.Client, migrations []database.Migr
 	RegisterMigrationRoutes(r, api)
 	RegisterHealthRoutes(r, api)
 	RegisterServerRoutes(r, api)
+	RegisterPluginRoutes(r, api)
 
 	rconClient.SendCommand("say ^5GoAdmin ^7now serving.")
 

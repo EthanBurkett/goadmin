@@ -65,6 +65,17 @@ A modern web-based administration panel for Call of Duty 4 (CoD4) game servers w
 - **Player Analytics** - Historical player data and trends
 - **Command History** - Audit trail of all executed commands
 
+### Plugin System
+
+- **Extensible Architecture** - Add custom functionality via plugins
+- **Event-Driven** - Subscribe to player events (connect, disconnect, etc.)
+- **Custom Commands** - Register in-game commands with Go callbacks
+- **RCON Integration** - Full RCON access for plugins
+- **Cross-Platform** - Works on Windows, Linux, and macOS
+- **Hot Reload** - Start, stop, and reload plugins without restart
+
+**See [PLUGINS.md](PLUGINS.md) for complete plugin development guide.**
+
 ## Tech Stack
 
 ### Backend
@@ -217,6 +228,32 @@ Frontend:
 cd frontend
 pnpm build
 ```
+
+### Creating Plugins
+
+GoAdmin supports a powerful plugin system for extending functionality. See **[PLUGINS.md](PLUGINS.md)** for:
+
+- Plugin architecture and APIs
+- Creating custom plugins
+- Event subscriptions
+- Registering in-game commands
+- RCON integration
+- Example plugins
+
+Quick start:
+
+1. Create plugin file: `plugins/myplugin/myplugin.go`
+2. Implement the `Plugin` interface
+3. Import in `app/main.go`
+4. Rebuild and restart
+
+Plugins can:
+
+- ✅ Subscribe to player events (join, leave, ban, etc.)
+- ✅ Register custom in-game commands with callbacks
+- ✅ Execute RCON commands
+- ✅ Access database (coming soon)
+- ✅ Trigger webhooks (coming soon)
 
 ## Security
 

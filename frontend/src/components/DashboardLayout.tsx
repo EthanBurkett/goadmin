@@ -12,6 +12,7 @@ import {
   FileText,
   Webhook,
   Database,
+  Puzzle,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import {
@@ -87,6 +88,12 @@ const navigation = [
     href: "/webhooks",
     icon: Webhook,
     permission: "webhooks.manage",
+  },
+  {
+    name: "Plugins",
+    href: "/plugins",
+    icon: Puzzle,
+    permission: "plugins.view",
   },
   {
     name: "Migrations",
