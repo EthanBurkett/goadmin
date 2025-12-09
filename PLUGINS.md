@@ -2,9 +2,7 @@
 
 ## Overview
 
-The GoAdmin plugin system allows extending the application's functionality without modifying the core codebase. Plugins are Go packages compiled directly into the binary that implement a standard interface and interact with GoAdmin through a well-defined API.
-
-**Windows Compatible**: This plugin system uses a registry-based approach that works on Windows, Linux, and macOS (no .so files required).
+Plugins are Go packages compiled into the binary that extend GoAdmin's functionality. They implement a standard interface and interact through a well-defined API.
 
 ## Architecture
 
@@ -221,6 +219,8 @@ p.ctx.RCONAPI.SendCommand("map mp_crash")
    # Restart GoAdmin
    ```
 
+   > Or if you're using the `pnpm dev` script, this will auto-rebuild.
+
 4. **Verify in UI**: Navigate to **Plugins** page to see your plugin running!
 
 ## Creating a Plugin
@@ -394,76 +394,64 @@ Both plugins showcase best practices for plugin development.
 
 ## Best Practices
 
-1. **Use the auto-import script**: Run `.\scripts\build_plugins.ps1` instead of manually editing main.go
-2. **Always cleanup in Stop()**: Unsubscribe from events, unregister commands
-3. **Handle errors gracefully**: Return errors from lifecycle methods
-4. **Use init() for registration**: Call `plugins.Registry.Register()` in init()
-5. **Avoid blocking**: Event handlers run in goroutines, don't block
-6. **Check permissions**: Request appropriate permissions in metadata
-7. **Version carefully**: Semantic versioning (major.minor.patch)
-8. **Document dependencies**: List required plugins in metadata
-9. **Package naming**: Use lowercase package names (e.g., `package myplugin`)
-10. **Test thoroughly**: Verify Start(), Stop(), and Reload() work correctly
+1. Use `.\scripts\build_plugins.ps1` for auto-import
+2. Cleanup in `Stop()` - unsubscribe events, unregister commands
+3. Return errors from lifecycle methods
+4. Call `plugins.Registry.Register()` in `init()`
+5. Don't block in event handlers (they run in goroutines)
+6. Request required permissions in metadata
+7. Use semantic versioning
+8. List dependencies in metadata
+9. Use lowercase package names
+10. Recreate channels/tickers in `Start()` for proper restart behavior
 
 ## Troubleshooting
 
-### Plugin not appearing in UI
+### Plugin not appearing
 
-- Run `.\scripts\build_plugins.ps1` to auto-import the plugin
-- Verify the plugin file is in the `plugins/` directory
-- Check that `init()` calls `plugins.Registry.Register()`
-- Rebuild the binary: `go build -o goadmin.exe ./app`
-- Restart GoAdmin
-- Check logs for registration errors
+1. Run `.\scripts\build_plugins.ps1`
+2. Verify `init()` calls `plugins.Registry.Register()`
+3. Rebuild: `go build -o goadmin.exe ./app`
+4. Restart GoAdmin
+5. Check logs for errors
 
 ### Plugin crashes on start
 
-- Check that all required permissions are granted
-- Verify dependencies are available
-- Review Init() and Start() for errors
-- Check that EventBus/APIs are properly initialized
+- Verify required permissions are granted
+- Check dependencies are available
+- Review `Init()` and `Start()` for errors
+- Ensure EventBus/APIs are initialized
 
 ### Events not firing
 
-- Verify subscription in Start()
+- Verify subscription in `Start()`
 - Check event type spelling (case-sensitive)
-- Ensure plugin is in "Running" state
-- Use anonymous functions for EventCallback compatibility
+- Ensure plugin state is "Running"
 
 ## Architecture Notes
 
-**Why Registry-Based?**
+**Registry-Based Approach:**
 
-- Go's `-buildmode=plugin` only works on Linux/macOS
-- Registry approach works on Windows, Linux, and macOS
-- Plugins are compiled into the binary (single executable)
-- Simpler deployment (no .so file management)
-
-**Trade-offs:**
-
-- ✅ Cross-platform compatibility
-- ✅ Easier deployment and distribution
-- ✅ No runtime plugin loading complexity
-- ❌ Requires rebuild to add/remove plugins
-- ❌ No hot-swap without restart
+- Plugins compile into the binary (single executable)
+- Cross-platform compatible
+- Requires rebuild to add/remove plugins
+- Runtime lifecycle management (start/stop/reload)
 
 ## Future Enhancements
 
-- Plugin dependency validation (check at load time)
-- Version compatibility checks (min/max GoAdmin version)
-- Resource limits (CPU, memory monitoring)
-- More granular API access controls
-- UI extension points (custom widgets, pages)
-- More event types (kill/death, chat, server state)
-- Configuration UI for plugin settings
-- Plugin marketplace/repository
+- Dependency validation
+- Version compatibility checks
+- Resource monitoring
+- UI extension points
+- Additional event types
+- Configuration UI
+- Plugin marketplace
 
-## Security Considerations
+## Security
 
-- Plugins have full access to the database via DatabaseAPI
-- Plugins can execute arbitrary RCON commands via RCONAPI
-- Plugins run with GoAdmin's process permissions
+- Plugins have full database and RCON access
+- Run with GoAdmin's process permissions
 - **Only enable trusted plugins** - review code before importing
-- Use permission system to restrict plugin capabilities
-- Monitor plugin resource usage in production
-- Audit plugin actions via the audit log system
+- Use permission system to restrict capabilities
+- Monitor resource usage in production
+- Audit actions via audit log
