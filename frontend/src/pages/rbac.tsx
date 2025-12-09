@@ -383,7 +383,7 @@ function RBAC() {
   ];
 
   return (
-    <ProtectedRoute>
+    <ProtectedRoute requiredPermission="rbac.manage">
       <DashboardLayout>
         <div className="p-8 space-y-6 bg-background min-h-screen">
           <div>

@@ -134,7 +134,7 @@ function Console() {
   }, []);
 
   return (
-    <ProtectedRoute>
+    <ProtectedRoute requiredPermission="rcon.command">
       <DashboardLayout>
         <div className="p-8 space-y-6 bg-background min-h-screen">
           <div>

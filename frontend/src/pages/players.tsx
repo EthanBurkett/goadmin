@@ -157,7 +157,7 @@ function Players() {
   const players = usePlayers(1000);
 
   return (
-    <ProtectedRoute>
+    <ProtectedRoute requiredPermission="players.view">
       <DashboardLayout>
         <div className="p-8 space-y-6 bg-background min-h-screen">
           <div>

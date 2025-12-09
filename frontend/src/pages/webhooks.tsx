@@ -46,6 +46,7 @@ import { toast } from "sonner";
 import { DataTable } from "@/components/DataTable";
 import type { ColumnDef } from "@tanstack/react-table";
 import { formatDistanceToNow } from "date-fns";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 
 export default function WebhooksPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -254,291 +255,295 @@ export default function WebhooksPage() {
   ];
 
   return (
-    <DashboardLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Webhooks</h1>
-            <p className="text-muted-foreground">
-              Configure webhooks to receive real-time events from GoAdmin
-            </p>
+    <ProtectedRoute requiredPermission="webhooks.manage">
+      <DashboardLayout>
+        <div className="p-8 space-y-6 bg-background min-h-screen">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-4xl font-bold text-foreground mb-2">
+                Webhooks
+              </h1>
+              <p className="text-muted-foreground">
+                Configure webhooks to receive real-time events from GoAdmin
+              </p>
+            </div>
+            <Dialog
+              open={dialogOpen}
+              onOpenChange={(open) => {
+                setDialogOpen(open);
+                if (!open) resetForm();
+              }}
+            >
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Webhook
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>
+                    {editingWebhook ? "Edit Webhook" : "Create Webhook"}
+                  </DialogTitle>
+                  <DialogDescription>
+                    Configure a webhook endpoint to receive event notifications
+                  </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Name</Label>
+                    <Input
+                      id="name"
+                      value={formData.name}
+                      onChange={(e) =>
+                        setFormData({ ...formData, name: e.target.value })
+                      }
+                      placeholder="My Discord Webhook"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="url">URL</Label>
+                    <Input
+                      id="url"
+                      type="url"
+                      value={formData.url}
+                      onChange={(e) =>
+                        setFormData({ ...formData, url: e.target.value })
+                      }
+                      placeholder="https://discord.com/api/webhooks/..."
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="secret">Secret</Label>
+                    <Input
+                      id="secret"
+                      value={formData.secret}
+                      onChange={(e) =>
+                        setFormData({ ...formData, secret: e.target.value })
+                      }
+                      placeholder="your-secret-key"
+                      required
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Used for HMAC SHA256 signature verification
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Events</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {WEBHOOK_EVENTS.map((event) => (
+                        <div
+                          key={event.value}
+                          className="flex items-center space-x-2"
+                        >
+                          <input
+                            type="checkbox"
+                            id={event.value}
+                            checked={formData.events.includes(event.value)}
+                            onChange={() => toggleEvent(event.value)}
+                            className="rounded border-gray-300"
+                          />
+                          <Label
+                            htmlFor={event.value}
+                            className="text-sm font-normal cursor-pointer"
+                          >
+                            {event.label}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="max_retries">Max Retries</Label>
+                      <Input
+                        id="max_retries"
+                        type="number"
+                        min="0"
+                        max="10"
+                        value={formData.max_retries}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            max_retries: parseInt(e.target.value),
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="retry_delay">Retry Delay (s)</Label>
+                      <Input
+                        id="retry_delay"
+                        type="number"
+                        min="1"
+                        value={formData.retry_delay}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            retry_delay: parseInt(e.target.value),
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="timeout">Timeout (s)</Label>
+                      <Input
+                        id="timeout"
+                        type="number"
+                        min="1"
+                        value={formData.timeout}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            timeout: parseInt(e.target.value),
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="active"
+                      checked={formData.active}
+                      onCheckedChange={(checked) =>
+                        setFormData({ ...formData, active: checked })
+                      }
+                    />
+                    <Label htmlFor="active">Active</Label>
+                  </div>
+
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setDialogOpen(false);
+                        resetForm();
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={
+                        createWebhook.isPending || updateWebhook.isPending
+                      }
+                    >
+                      {(createWebhook.isPending || updateWebhook.isPending) && (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      )}
+                      {editingWebhook ? "Update" : "Create"}
+                    </Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
           </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Webhook Endpoints</CardTitle>
+              <CardDescription>
+                Manage webhook endpoints and view their delivery status
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : webhooks && webhooks.length > 0 ? (
+                <DataTable columns={columns} data={webhooks} />
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  No webhooks configured. Create your first webhook to get
+                  started.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           <Dialog
-            open={dialogOpen}
-            onOpenChange={(open) => {
-              setDialogOpen(open);
-              if (!open) resetForm();
-            }}
+            open={deliveriesDialogOpen}
+            onOpenChange={setDeliveriesDialogOpen}
           >
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Create Webhook
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>
-                  {editingWebhook ? "Edit Webhook" : "Create Webhook"}
-                </DialogTitle>
+                <DialogTitle>Delivery History</DialogTitle>
                 <DialogDescription>
-                  Configure a webhook endpoint to receive event notifications
+                  View webhook delivery attempts and their status
                 </DialogDescription>
               </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Name</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) =>
-                      setFormData({ ...formData, name: e.target.value })
-                    }
-                    placeholder="My Discord Webhook"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="url">URL</Label>
-                  <Input
-                    id="url"
-                    type="url"
-                    value={formData.url}
-                    onChange={(e) =>
-                      setFormData({ ...formData, url: e.target.value })
-                    }
-                    placeholder="https://discord.com/api/webhooks/..."
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="secret">Secret</Label>
-                  <Input
-                    id="secret"
-                    value={formData.secret}
-                    onChange={(e) =>
-                      setFormData({ ...formData, secret: e.target.value })
-                    }
-                    placeholder="your-secret-key"
-                    required
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Used for HMAC SHA256 signature verification
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Events</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {WEBHOOK_EVENTS.map((event) => (
-                      <div
-                        key={event.value}
-                        className="flex items-center space-x-2"
-                      >
-                        <input
-                          type="checkbox"
-                          id={event.value}
-                          checked={formData.events.includes(event.value)}
-                          onChange={() => toggleEvent(event.value)}
-                          className="rounded border-gray-300"
-                        />
-                        <Label
-                          htmlFor={event.value}
-                          className="text-sm font-normal cursor-pointer"
-                        >
-                          {event.label}
-                        </Label>
-                      </div>
-                    ))}
+              <div className="space-y-4">
+                {deliveries && deliveries.length > 0 ? (
+                  deliveries.map((delivery) => (
+                    <Card key={delivery.id}>
+                      <CardContent className="pt-6">
+                        <div className="flex items-start justify-between">
+                          <div className="space-y-2 flex-1">
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline">
+                                {delivery.event_type}
+                              </Badge>
+                              {delivery.status === "delivered" && (
+                                <CheckCircle className="h-4 w-4 text-green-500" />
+                              )}
+                              {delivery.status === "failed" && (
+                                <XCircle className="h-4 w-4 text-red-500" />
+                              )}
+                              {delivery.status === "pending" && (
+                                <Clock className="h-4 w-4 text-yellow-500" />
+                              )}
+                              <Badge
+                                variant={
+                                  delivery.status === "delivered"
+                                    ? "default"
+                                    : delivery.status === "failed"
+                                    ? "destructive"
+                                    : "secondary"
+                                }
+                              >
+                                {delivery.status}
+                              </Badge>
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              Attempts: {delivery.attempt_count}
+                              {delivery.response_code &&
+                                ` • Response: ${delivery.response_code}`}
+                            </div>
+                            {delivery.error_message && (
+                              <div className="text-sm text-red-500">
+                                Error: {delivery.error_message}
+                              </div>
+                            )}
+                            <div className="text-xs text-muted-foreground">
+                              {formatDistanceToNow(
+                                new Date(delivery.created_at),
+                                { addSuffix: true }
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No delivery history available
                   </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="max_retries">Max Retries</Label>
-                    <Input
-                      id="max_retries"
-                      type="number"
-                      min="0"
-                      max="10"
-                      value={formData.max_retries}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          max_retries: parseInt(e.target.value),
-                        })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="retry_delay">Retry Delay (s)</Label>
-                    <Input
-                      id="retry_delay"
-                      type="number"
-                      min="1"
-                      value={formData.retry_delay}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          retry_delay: parseInt(e.target.value),
-                        })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="timeout">Timeout (s)</Label>
-                    <Input
-                      id="timeout"
-                      type="number"
-                      min="1"
-                      value={formData.timeout}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          timeout: parseInt(e.target.value),
-                        })
-                      }
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="active"
-                    checked={formData.active}
-                    onCheckedChange={(checked) =>
-                      setFormData({ ...formData, active: checked })
-                    }
-                  />
-                  <Label htmlFor="active">Active</Label>
-                </div>
-
-                <div className="flex justify-end gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setDialogOpen(false);
-                      resetForm();
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={
-                      createWebhook.isPending || updateWebhook.isPending
-                    }
-                  >
-                    {(createWebhook.isPending || updateWebhook.isPending) && (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    )}
-                    {editingWebhook ? "Update" : "Create"}
-                  </Button>
-                </div>
-              </form>
+                )}
+              </div>
             </DialogContent>
           </Dialog>
         </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Webhook Endpoints</CardTitle>
-            <CardDescription>
-              Manage webhook endpoints and view their delivery status
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              </div>
-            ) : webhooks && webhooks.length > 0 ? (
-              <DataTable columns={columns} data={webhooks} />
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                No webhooks configured. Create your first webhook to get
-                started.
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Dialog
-          open={deliveriesDialogOpen}
-          onOpenChange={setDeliveriesDialogOpen}
-        >
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Delivery History</DialogTitle>
-              <DialogDescription>
-                View webhook delivery attempts and their status
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              {deliveries && deliveries.length > 0 ? (
-                deliveries.map((delivery) => (
-                  <Card key={delivery.id}>
-                    <CardContent className="pt-6">
-                      <div className="flex items-start justify-between">
-                        <div className="space-y-2 flex-1">
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline">
-                              {delivery.event_type}
-                            </Badge>
-                            {delivery.status === "delivered" && (
-                              <CheckCircle className="h-4 w-4 text-green-500" />
-                            )}
-                            {delivery.status === "failed" && (
-                              <XCircle className="h-4 w-4 text-red-500" />
-                            )}
-                            {delivery.status === "pending" && (
-                              <Clock className="h-4 w-4 text-yellow-500" />
-                            )}
-                            <Badge
-                              variant={
-                                delivery.status === "delivered"
-                                  ? "default"
-                                  : delivery.status === "failed"
-                                  ? "destructive"
-                                  : "secondary"
-                              }
-                            >
-                              {delivery.status}
-                            </Badge>
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            Attempts: {delivery.attempt_count}
-                            {delivery.response_code &&
-                              ` • Response: ${delivery.response_code}`}
-                          </div>
-                          {delivery.error_message && (
-                            <div className="text-sm text-red-500">
-                              Error: {delivery.error_message}
-                            </div>
-                          )}
-                          <div className="text-xs text-muted-foreground">
-                            {formatDistanceToNow(
-                              new Date(delivery.created_at),
-                              { addSuffix: true }
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  No delivery history available
-                </div>
-              )}
-            </div>
-          </DialogContent>
-        </Dialog>
-      </div>
-    </DashboardLayout>
+      </DashboardLayout>
+    </ProtectedRoute>
   );
 }

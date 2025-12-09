@@ -11,6 +11,7 @@ import {
   AlertTriangle,
   FileText,
   Webhook,
+  Database,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import {
@@ -59,13 +60,13 @@ const navigation = [
     name: "Groups",
     href: "/groups",
     icon: Group,
-    permission: "rbac.manage",
+    permission: "groups.manage",
   },
   {
     name: "Commands",
     href: "/commands",
     icon: Command,
-    permission: "rbac.manage",
+    permission: "commands.manage",
   },
   {
     name: "Reports",
@@ -77,13 +78,19 @@ const navigation = [
     name: "Audit Logs",
     href: "/audit",
     icon: FileText,
-    permission: "rbac.manage",
+    permission: "audit.view",
   },
   {
     name: "Webhooks",
     href: "/webhooks",
     icon: Webhook,
-    permission: "rbac.manage",
+    permission: "webhooks.manage",
+  },
+  {
+    name: "Migrations",
+    href: "/migrations",
+    icon: Database,
+    permission: "migrations.manage",
   },
   { name: "RBAC", href: "/rbac", icon: Shield, permission: "rbac.manage" },
 ];

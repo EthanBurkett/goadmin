@@ -14,6 +14,8 @@ import Index from "./src/pages/index";
 routes.push({ path: "/", element: <Index /> });
 import Login from "./src/pages/login";
 routes.push({ path: "/login", element: <Login /> });
+import Migrations from "./src/pages/migrations";
+routes.push({ path: "/migrations", element: <Migrations /> });
 import Players from "./src/pages/players";
 routes.push({ path: "/players", element: <Players /> });
 import Rbac from "./src/pages/rbac";

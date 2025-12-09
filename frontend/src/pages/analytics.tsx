@@ -105,7 +105,7 @@ function Analytics() {
   };
 
   return (
-    <ProtectedRoute>
+    <ProtectedRoute requiredPermission="status.view">
       <DashboardLayout>
         <div className="p-8 space-y-6 bg-background min-h-screen">
           <div className="flex justify-between items-center">

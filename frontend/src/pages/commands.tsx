@@ -235,7 +235,7 @@ function Commands() {
   }, [commands, searchQuery, statusFilter, powerFilter]);
 
   return (
-    <ProtectedRoute>
+    <ProtectedRoute requiredPermission="commands.manage">
       <DashboardLayout>
         <div className="p-8 space-y-6 bg-background min-h-screen">
           <div className="flex justify-between items-center">
@@ -616,7 +616,10 @@ function Commands() {
                         RCON Template
                       </div>
                       <div className="text-sm font-mono bg-muted/30 p-2 rounded border border-border">
-                        {cmd.rconCommand || (cmd.isBuiltIn ? "(Go callback function)" : "(empty)")}
+                        {cmd.rconCommand ||
+                          (cmd.isBuiltIn
+                            ? "(Go callback function)"
+                            : "(empty)")}
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-sm">

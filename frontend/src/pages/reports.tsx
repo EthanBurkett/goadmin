@@ -145,7 +145,7 @@ function Reports() {
   const activeTempBans = tempBans?.filter((b) => b.active) || [];
 
   return (
-    <ProtectedRoute>
+    <ProtectedRoute requiredPermission="reports.view">
       <DashboardLayout>
         <div className="p-8 space-y-6 bg-background min-h-screen">
           <div>
