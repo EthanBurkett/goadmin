@@ -93,6 +93,8 @@ func (ch *CommandHandler) handleHelpCommand(ch2 *CommandHandler, playerName, pla
 	}
 
 	var availableCommands []models.CustomCommand
+
+	// Add custom commands from database
 	for _, cmd := range allCommands {
 		if !cmd.Enabled {
 			continue
@@ -145,6 +147,62 @@ func (ch *CommandHandler) handleHelpCommand(ch2 *CommandHandler, playerName, pla
 
 		if canUse {
 			availableCommands = append(availableCommands, cmd)
+		}
+	}
+
+	// Add plugin commands
+	if ch.pluginCommandAPI != nil {
+		pluginCommands := ch.pluginCommandAPI.GetRegisteredCommands()
+		for name, def := range pluginCommands {
+			// Check if player has required power level
+			if playerPower < def.MinPower {
+				continue
+			}
+
+			// Check if player has required permissions
+			canUse := true
+			if len(def.Permissions) > 0 {
+				// Check if player has "all" permission (super admin)
+				hasAllPermission := false
+				for _, playerPerm := range playerPermissions {
+					if playerPerm == "all" {
+						hasAllPermission = true
+						break
+					}
+				}
+
+				// Check if player has all required permissions
+				if !hasAllPermission {
+					hasAllPerms := true
+					for _, reqPerm := range def.Permissions {
+						found := false
+						for _, playerPerm := range playerPermissions {
+							if playerPerm == reqPerm {
+								found = true
+								break
+							}
+						}
+						if !found {
+							hasAllPerms = false
+							break
+						}
+					}
+					if !hasAllPerms {
+						canUse = false
+					}
+				}
+			}
+
+			if canUse {
+				// Convert plugin command to CustomCommand format for display
+				pluginCmd := models.CustomCommand{
+					Name:        name,
+					Usage:       def.Usage,
+					Description: def.Description,
+					Enabled:     true,
+				}
+				availableCommands = append(availableCommands, pluginCmd)
+			}
 		}
 	}
 
