@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/ethanburkett/goadmin/app/database"
+	"gorm.io/gorm"
 )
 
 // TempBan represents a temporary ban
@@ -12,8 +13,10 @@ type TempBan struct {
 	PlayerName   string    `gorm:"not null" json:"playerName"`       // Name of banned player
 	PlayerGUID   string    `gorm:"not null;index" json:"playerGuid"` // GUID of banned player
 	Reason       string    `gorm:"type:text;not null" json:"reason"` // Reason for ban
-	BannedByUser *uint     `json:"bannedByUser"`                     // User who issued ban
+	BannedByUser *uint     `gorm:"index" json:"bannedByUser"`        // User who issued ban
 	BannedBy     *User     `gorm:"foreignKey:BannedByUser;constraint:OnDelete:SET NULL" json:"bannedBy,omitempty"`
+	ServerID     *uint     `gorm:"index" json:"serverId,omitempty"` // Server where ban was issued
+	Server       *Server   `gorm:"foreignKey:ServerID;constraint:OnDelete:SET NULL" json:"server,omitempty"`
 	ExpiresAt    time.Time `gorm:"not null;index" json:"expiresAt"`  // When ban expires
 	Active       bool      `gorm:"default:true;index" json:"active"` // Whether ban is still active
 	CreatedAt    time.Time `json:"createdAt"`
@@ -21,35 +24,48 @@ type TempBan struct {
 }
 
 // CreateTempBan creates a new temporary ban
-func CreateTempBan(playerName, playerGUID, reason string, duration time.Duration, bannedByUser *uint) (*TempBan, error) {
-	db := database.DB
-
-	tempBan := &TempBan{
-		PlayerName:   playerName,
-		PlayerGUID:   playerGUID,
-		Reason:       reason,
-		BannedByUser: bannedByUser,
-		ExpiresAt:    time.Now().Add(duration),
-		Active:       true,
-	}
-
-	err := db.Create(tempBan).Error
+func CreateTempBan(playerName, playerGUID, reason string, duration time.Duration, bannedByUser, serverID *uint) (*TempBan, error) {
+	var tempBan *TempBan
+	err := database.DB.Transaction(func(tx *gorm.DB) error {
+		tempBan = &TempBan{
+			PlayerName:   playerName,
+			PlayerGUID:   playerGUID,
+			Reason:       reason,
+			BannedByUser: bannedByUser,
+			ServerID:     serverID,
+			ExpiresAt:    time.Now().Add(duration),
+			Active:       true,
+		}
+		return tx.Create(tempBan).Error
+	})
 	return tempBan, err
 }
 
-// GetActiveTempBans gets all active temporary bans
-func GetActiveTempBans() ([]TempBan, error) {
+// GetActiveTempBans gets all active temporary bans, optionally filtered by server ID
+func GetActiveTempBans(serverID *uint) ([]TempBan, error) {
 	db := database.DB
 	var bans []TempBan
-	err := db.Preload("BannedBy").Where("active = ? AND expires_at > ?", true, time.Now()).Order("created_at DESC").Find(&bans).Error
+	query := db.Preload("BannedBy").Preload("Server").Where("active = ? AND expires_at > ?", true, time.Now())
+
+	if serverID != nil {
+		query = query.Where("server_id = ?", *serverID)
+	}
+
+	err := query.Order("created_at DESC").Find(&bans).Error
 	return bans, err
 }
 
-// GetAllTempBans gets all temporary bans (active and expired)
-func GetAllTempBans() ([]TempBan, error) {
+// GetAllTempBans gets all temporary bans (active and expired), optionally filtered by server ID
+func GetAllTempBans(serverID *uint) ([]TempBan, error) {
 	db := database.DB
 	var bans []TempBan
-	err := db.Preload("BannedBy").Order("created_at DESC").Find(&bans).Error
+	query := db.Preload("BannedBy").Preload("Server")
+
+	if serverID != nil {
+		query = query.Where("server_id = ?", *serverID)
+	}
+
+	err := query.Order("created_at DESC").Find(&bans).Error
 	return bans, err
 }
 

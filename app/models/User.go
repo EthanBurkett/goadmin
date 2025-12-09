@@ -16,8 +16,8 @@ type User struct {
 	Username  string         `gorm:"uniqueIndex;not null" json:"username"`
 	Password  string         `gorm:"not null" json:"-"`
 	Approved  bool           `gorm:"default:false" json:"approved"`
-	Sessions  []Session      `gorm:"foreignKey:UserID" json:"-"`
-	Roles     []Role         `gorm:"many2many:user_roles;" json:"roles,omitempty"`
+	Sessions  []Session      `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE" json:"-"`
+	Roles     []Role         `gorm:"many2many:user_roles;constraint:OnDelete:CASCADE;" json:"roles,omitempty"`
 }
 
 func (u *User) SetPassword(password string) error {
@@ -90,27 +90,31 @@ func (u *User) HasRole(roleName string) bool {
 }
 
 func AddRoleToUser(userID, roleID uint) error {
-	user, err := GetUserByID(userID)
-	if err != nil {
-		return err
-	}
-	role, err := GetRoleByID(roleID)
-	if err != nil {
-		return err
-	}
-	return database.DB.Model(user).Association("Roles").Append(role)
+	return database.DB.Transaction(func(tx *gorm.DB) error {
+		var user User
+		if err := tx.Preload("Roles").First(&user, userID).Error; err != nil {
+			return err
+		}
+		var role Role
+		if err := tx.First(&role, roleID).Error; err != nil {
+			return err
+		}
+		return tx.Model(&user).Association("Roles").Append(&role)
+	})
 }
 
 func RemoveRoleFromUser(userID, roleID uint) error {
-	user, err := GetUserByID(userID)
-	if err != nil {
-		return err
-	}
-	role, err := GetRoleByID(roleID)
-	if err != nil {
-		return err
-	}
-	return database.DB.Model(user).Association("Roles").Delete(role)
+	return database.DB.Transaction(func(tx *gorm.DB) error {
+		var user User
+		if err := tx.Preload("Roles").First(&user, userID).Error; err != nil {
+			return err
+		}
+		var role Role
+		if err := tx.First(&role, roleID).Error; err != nil {
+			return err
+		}
+		return tx.Model(&user).Association("Roles").Delete(&role)
+	})
 }
 
 func GetAllUsers() ([]User, error) {

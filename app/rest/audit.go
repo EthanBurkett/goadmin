@@ -12,7 +12,7 @@ import (
 func RegisterAuditRoutes(r *gin.Engine, api *Api) {
 	audit := r.Group("/audit")
 	audit.Use(AuthMiddleware())
-	audit.Use(RequirePermission("rbac.manage")) // Only admins can view audit logs
+	audit.Use(RequirePermission("audit.view")) // Only admins can view audit logs
 	{
 		audit.GET("/logs", getAuditLogs(api))
 		audit.GET("/logs/recent", getRecentAuditLogs(api))

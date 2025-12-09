@@ -38,7 +38,20 @@ func RegisterReportRoutes(r *gin.Engine, api *Api) {
 
 func getAllReports(api *Api) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		reports, err := models.GetAllReports()
+		// Optional server ID filter
+		var serverID *uint
+		if serverIDStr := c.Query("server_id"); serverIDStr != "" {
+			id, err := strconv.ParseUint(serverIDStr, 10, 32)
+			if err != nil {
+				c.Set("error", "Invalid server ID")
+				c.Status(http.StatusBadRequest)
+				return
+			}
+			sid := uint(id)
+			serverID = &sid
+		}
+
+		reports, err := models.GetAllReports(serverID)
 		if err != nil {
 			c.Set("error", "Failed to retrieve reports")
 			c.Status(http.StatusInternalServerError)
@@ -52,7 +65,20 @@ func getAllReports(api *Api) gin.HandlerFunc {
 
 func getPendingReports(api *Api) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		reports, err := models.GetPendingReports()
+		// Optional server ID filter
+		var serverID *uint
+		if serverIDStr := c.Query("server_id"); serverIDStr != "" {
+			id, err := strconv.ParseUint(serverIDStr, 10, 32)
+			if err != nil {
+				c.Set("error", "Invalid server ID")
+				c.Status(http.StatusBadRequest)
+				return
+			}
+			sid := uint(id)
+			serverID = &sid
+		}
+
+		reports, err := models.GetPendingReports(serverID)
 		if err != nil {
 			c.Set("error", "Failed to retrieve pending reports")
 			c.Status(http.StatusInternalServerError)
@@ -161,7 +187,7 @@ func actionReport(api *Api) gin.HandlerFunc {
 			}
 
 			duration := time.Duration(*req.Duration) * time.Hour
-			tempBan, err := models.CreateTempBan(report.ReportedName, report.ReportedGUID, req.Reason, duration, &uid)
+			tempBan, err := models.CreateTempBan(report.ReportedName, report.ReportedGUID, req.Reason, duration, &uid, report.ServerID)
 			if err != nil {
 				Audit.LogTempBan(c, report.ReportedName, report.ReportedGUID, req.Reason, *req.Duration, false, err.Error())
 				c.Set("error", "Failed to create temporary ban")
@@ -263,7 +289,20 @@ func deleteReport(api *Api) gin.HandlerFunc {
 
 func getAllTempBans(api *Api) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		bans, err := models.GetAllTempBans()
+		// Optional server ID filter
+		var serverID *uint
+		if serverIDStr := c.Query("server_id"); serverIDStr != "" {
+			id, err := strconv.ParseUint(serverIDStr, 10, 32)
+			if err != nil {
+				c.Set("error", "Invalid server ID")
+				c.Status(http.StatusBadRequest)
+				return
+			}
+			sid := uint(id)
+			serverID = &sid
+		}
+
+		bans, err := models.GetAllTempBans(serverID)
 		if err != nil {
 			c.Set("error", "Failed to retrieve temp bans")
 			c.Status(http.StatusInternalServerError)
@@ -277,7 +316,20 @@ func getAllTempBans(api *Api) gin.HandlerFunc {
 
 func getActiveTempBans(api *Api) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		bans, err := models.GetActiveTempBans()
+		// Optional server ID filter
+		var serverID *uint
+		if serverIDStr := c.Query("server_id"); serverIDStr != "" {
+			id, err := strconv.ParseUint(serverIDStr, 10, 32)
+			if err != nil {
+				c.Set("error", "Invalid server ID")
+				c.Status(http.StatusBadRequest)
+				return
+			}
+			sid := uint(id)
+			serverID = &sid
+		}
+
+		bans, err := models.GetActiveTempBans(serverID)
 		if err != nil {
 			c.Set("error", "Failed to retrieve active temp bans")
 			c.Status(http.StatusInternalServerError)

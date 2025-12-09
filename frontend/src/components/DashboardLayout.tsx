@@ -29,6 +29,8 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { useAuthContext } from "@/hooks/useAuthContext";
+import { ServerSelector } from "./ServerSelector";
+import { useServerContext } from "@/hooks/useServerContext";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: Home, permission: null },
@@ -102,6 +104,7 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const location = useLocation();
   const { user, logout } = useAuthContext();
+  const { currentServer } = useServerContext();
 
   const handleLogout = async () => {
     await logout();
@@ -121,15 +124,31 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     hasPermission(item.permission)
   );
 
+  // Build nav href with current server ID
+  const buildHref = (basePath: string) => {
+    if (!currentServer) return basePath;
+    return `/${currentServer.id}${basePath}`;
+  };
+
+  // Check if current path matches (accounting for server ID)
+  const isActive = (basePath: string) => {
+    const pathWithoutServer = location.pathname.replace(/^\/\d+/, "");
+    return (
+      pathWithoutServer === basePath ||
+      (basePath === "/" && pathWithoutServer === "")
+    );
+  };
+
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full bg-background">
         <Sidebar className="border-border">
-          <SidebarHeader className="border-b border-border p-4">
+          <SidebarHeader className="border-b border-border p-4 space-y-3">
             <div className="flex items-center space-x-2">
               <Shield className="h-6 w-6 text-primary" />
               <span className="text-lg font-bold text-foreground">GoAdmin</span>
             </div>
+            <ServerSelector />
           </SidebarHeader>
           <SidebarContent>
             <SidebarGroup>
@@ -142,10 +161,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                     <SidebarMenuItem key={item.name}>
                       <SidebarMenuButton
                         asChild
-                        isActive={location.pathname === item.href}
+                        isActive={isActive(item.href)}
                         className="text-foreground/90 hover:text-foreground hover:bg-muted"
                       >
-                        <Link to={item.href}>
+                        <Link to={buildHref(item.href)}>
                           <item.icon className="h-4 w-4" />
                           <span>{item.name}</span>
                         </Link>

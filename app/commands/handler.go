@@ -139,11 +139,38 @@ func (ch *CommandHandler) ProcessChatCommand(playerName, playerGUID, message str
 		}
 
 		if requirementType == "permission" || requirementType == "both" {
-			if !ch.hasRequiredPermissions(playerPermissions, `["all"]`) && !ch.hasRequiredPermissions(playerPermissions, cmd.Permissions) {
-				ch.sendPlayerMessage(playerName, "You don't have permission to use this command")
-				logger.Info(fmt.Sprintf("Player %s (%s) denied access to built-in command '%s' - missing permissions",
-					playerName, playerGUID, commandName))
-				return nil
+			// Check if player has "all" permission (super admin)
+			hasAllPermission := false
+			for _, playerPerm := range playerPermissions {
+				if playerPerm == "all" {
+					hasAllPermission = true
+					break
+				}
+			}
+
+			// Check if player has all required permissions
+			if !hasAllPermission && len(cmd.Permissions) > 0 {
+				hasAllPerms := true
+				for _, reqPerm := range cmd.Permissions {
+					found := false
+					for _, playerPerm := range playerPermissions {
+						if playerPerm == reqPerm.Name {
+							found = true
+							break
+						}
+					}
+					if !found {
+						hasAllPerms = false
+						break
+					}
+				}
+
+				if !hasAllPerms {
+					ch.sendPlayerMessage(playerName, "You don't have permission to use this command")
+					logger.Info(fmt.Sprintf("Player %s (%s) denied access to built-in command '%s' - missing permissions",
+						playerName, playerGUID, commandName))
+					return nil
+				}
 			}
 		}
 
@@ -196,11 +223,38 @@ func (ch *CommandHandler) ProcessChatCommand(playerName, playerGUID, message str
 	}
 
 	if requirementType == "permission" || requirementType == "both" {
-		if !ch.hasRequiredPermissions(playerPermissions, `["all"]`) && !ch.hasRequiredPermissions(playerPermissions, cmd.Permissions) {
-			ch.sendPlayerMessage(playerName, "You don't have permission to use this command")
-			logger.Info(fmt.Sprintf("Player %s (%s) denied access to command '%s' - missing permissions",
-				playerName, playerGUID, commandName))
-			return nil
+		// Check if player has "all" permission (super admin)
+		hasAllPermission := false
+		for _, playerPerm := range playerPermissions {
+			if playerPerm == "all" {
+				hasAllPermission = true
+				break
+			}
+		}
+
+		// Check if player has all required permissions
+		if !hasAllPermission && len(cmd.Permissions) > 0 {
+			hasAllPerms := true
+			for _, reqPerm := range cmd.Permissions {
+				found := false
+				for _, playerPerm := range playerPermissions {
+					if playerPerm == reqPerm.Name {
+						found = true
+						break
+					}
+				}
+				if !found {
+					hasAllPerms = false
+					break
+				}
+			}
+
+			if !hasAllPerms {
+				ch.sendPlayerMessage(playerName, "You don't have permission to use this command")
+				logger.Info(fmt.Sprintf("Player %s (%s) denied access to command '%s' - missing permissions",
+					playerName, playerGUID, commandName))
+				return nil
+			}
 		}
 	}
 
@@ -257,36 +311,6 @@ func (ch *CommandHandler) getPlayerPermissions(guid string) []string {
 	}
 
 	return permissions
-}
-
-// hasRequiredPermissions checks if player has all required permissions
-func (ch *CommandHandler) hasRequiredPermissions(playerPerms []string, requiredPermsJSON string) bool {
-	if requiredPermsJSON == "" {
-		return true
-	}
-
-	var requiredPerms []string
-	if err := json.Unmarshal([]byte(requiredPermsJSON), &requiredPerms); err != nil {
-		logger.Error(fmt.Sprintf("Failed to parse required permissions: %v", err))
-		return false
-	}
-
-	if len(requiredPerms) == 0 {
-		return true
-	}
-
-	playerPermSet := make(map[string]bool)
-	for _, perm := range playerPerms {
-		playerPermSet[perm] = true
-	}
-
-	for _, reqPerm := range requiredPerms {
-		if !playerPermSet[reqPerm] {
-			return false
-		}
-	}
-
-	return true
 }
 
 // sendPlayerMessage sends a message to a specific player

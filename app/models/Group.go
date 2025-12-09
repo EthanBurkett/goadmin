@@ -23,8 +23,10 @@ type InGamePlayer struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
 	GUID      string    `gorm:"unique;not null;index" json:"guid"` // PB GUID/UUID/XUID
 	Name      string    `gorm:"index" json:"name"`                 // Last known name
-	GroupID   *uint     `json:"groupId"`                           // Optional group assignment
+	GroupID   *uint     `gorm:"index" json:"groupId"`              // Optional group assignment
 	Group     *Group    `gorm:"foreignKey:GroupID;constraint:OnDelete:SET NULL" json:"group,omitempty"`
+	ServerID  *uint     `gorm:"index" json:"serverId,omitempty"` // Server where player was seen
+	Server    *Server   `gorm:"foreignKey:ServerID;constraint:OnDelete:CASCADE" json:"server,omitempty"`
 	Enabled   bool      `gorm:"default:true" json:"enabled"` // Can be disabled/banned
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
@@ -69,10 +71,14 @@ func UpdateGroup(id uint, updates map[string]interface{}) error {
 
 // DeleteGroup deletes a group
 func DeleteGroup(id uint) error {
-	db := database.DB
-	// Remove group assignment from all players
-	db.Model(&InGamePlayer{}).Where("group_id = ?", id).Update("group_id", nil)
-	return db.Delete(&Group{}, id).Error
+	return database.DB.Transaction(func(tx *gorm.DB) error {
+		// Remove group assignment from all players
+		if err := tx.Model(&InGamePlayer{}).Where("group_id = ?", id).Update("group_id", nil).Error; err != nil {
+			return err
+		}
+		// Delete the group
+		return tx.Delete(&Group{}, id).Error
+	})
 }
 
 // CreateOrUpdateInGamePlayer creates or updates an in-game player by GUID
@@ -119,11 +125,28 @@ func GetInGamePlayerByGUID(guid string) (*InGamePlayer, error) {
 	return &player, nil
 }
 
-// GetAllInGamePlayers gets all in-game players
-func GetAllInGamePlayers() ([]InGamePlayer, error) {
+// GetInGamePlayerByID gets a player by their ID
+func GetInGamePlayerByID(id uint) (*InGamePlayer, error) {
+	db := database.DB
+	var player InGamePlayer
+	err := db.Preload("Group").Where("id = ?", id).First(&player).Error
+	if err != nil {
+		return nil, err
+	}
+	return &player, nil
+}
+
+// GetAllInGamePlayers gets all in-game players, optionally filtered by server ID
+func GetAllInGamePlayers(serverID *uint) ([]InGamePlayer, error) {
 	db := database.DB
 	var players []InGamePlayer
-	err := db.Preload("Group").Order("name").Find(&players).Error
+	query := db.Preload("Group").Preload("Server")
+
+	if serverID != nil {
+		query = query.Where("server_id = ?", *serverID)
+	}
+
+	err := query.Order("name").Find(&players).Error
 	return players, err
 }
 

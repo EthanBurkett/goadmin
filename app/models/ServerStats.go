@@ -10,6 +10,8 @@ import (
 // ServerStats stores server metrics over time for charting
 type ServerStats struct {
 	ID          uint      `gorm:"primaryKey" json:"id"`
+	ServerID    *uint     `gorm:"index" json:"serverId,omitempty"` // Server these stats belong to
+	Server      *Server   `gorm:"foreignKey:ServerID;constraint:OnDelete:CASCADE" json:"server,omitempty"`
 	Timestamp   time.Time `gorm:"index;not null" json:"timestamp"`
 	PlayerCount int       `json:"playerCount"`
 	MaxPlayers  int       `json:"maxPlayers"`
@@ -83,13 +85,17 @@ func CreatePlayerStats(totalKills, totalDeaths int, avgPing, avgScore float64) e
 	return db.Create(stat).Error
 }
 
-// GetServerStatsRange retrieves server stats within a time range
-func GetServerStatsRange(start, end time.Time) ([]ServerStats, error) {
+// GetServerStatsRange retrieves server stats within a time range, optionally filtered by server ID
+func GetServerStatsRange(start, end time.Time, serverID *uint) ([]ServerStats, error) {
 	db := database.DB
 	var stats []ServerStats
-	err := db.Where("timestamp BETWEEN ? AND ?", start, end).
-		Order("timestamp ASC").
-		Find(&stats).Error
+	query := db.Preload("Server").Where("timestamp BETWEEN ? AND ?", start, end)
+
+	if serverID != nil {
+		query = query.Where("server_id = ?", *serverID)
+	}
+
+	err := query.Order("timestamp ASC").Find(&stats).Error
 	return stats, err
 }
 

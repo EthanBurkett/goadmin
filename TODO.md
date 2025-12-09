@@ -12,19 +12,41 @@ This document tracks major improvements and refactoring tasks for GoAdmin.
   - Added `constraint:OnDelete:SET NULL` to TempBan.BannedByUser
   - Added `constraint:OnDelete:CASCADE` to CommandHistory.UserID
   - Added `constraint:OnDelete:SET NULL` to InGamePlayer.GroupID
-- [ ] Normalize command definitions table
-  - [ ] Separate command metadata from execution logic
-  - [ ] Add proper FK constraints to roles/permissions
-- [ ] Normalize permission mappings
-  - [ ] Ensure all permission relationships have FK constraints
-  - [ ] Add cascading rules (ON DELETE CASCADE/RESTRICT)
-- [ ] Normalize role mappings
-  - [ ] Add FK constraints between users, roles, and permissions
-  - [ ] Add unique constraints where needed
-- [ ] Server instances normalization
-  - [ ] Create proper server configuration table
-  - [ ] Link commands/groups/bans to specific server instances
-  - [ ] Add server-level isolation for multi-server setups
+- [x] ✅ Normalize command definitions table
+  - [x] ✅ Separated command metadata with proper structure
+  - [x] ✅ Replaced JSON permissions field with many-to-many relationship
+  - [x] ✅ Added FK constraints to custom_commands→permissions via command_permissions junction table
+  - [x] ✅ Added CASCADE constraints for referential integrity
+  - [x] ✅ Created migration 007 for command permissions normalization
+  - [x] ✅ Updated REST API to work with permission IDs
+  - [x] ✅ Updated in-game command handler to use Permission objects
+  - [x] ✅ Added helper methods: AddPermissionToCommand, RemovePermissionFromCommand, SetCommandPermissions, HasPermission
+- [x] ✅ Normalize permission mappings
+  - [x] ✅ Ensure all permission relationships have FK constraints
+  - [x] ✅ Add cascading rules (ON DELETE CASCADE) to many-to-many relationships
+  - [x] ✅ Updated Role model with constraint:OnDelete:CASCADE for user_roles and role_permissions
+  - [x] ✅ Updated Permission model with constraint:OnDelete:CASCADE for role_permissions
+  - [x] ✅ Updated User model with constraint:OnDelete:CASCADE for user_roles
+- [x] ✅ Normalize role mappings
+  - [x] ✅ Add FK constraints between users, roles, and permissions
+  - [x] ✅ Add unique constraints where needed (already present via uniqueIndex on names)
+  - [x] ✅ Ensure proper cascading behavior for role assignments
+- [x] ✅ Server instances normalization
+  - [x] ✅ Created Server model with proper configuration fields
+  - [x] ✅ Linked TempBan, Report, CommandHistory, InGamePlayer, ServerStats to servers
+  - [x] ✅ Added ServerID foreign keys with appropriate constraints (SET NULL or CASCADE)
+  - [x] ✅ Created migration 008 for server instances
+  - [x] ✅ Added server management methods: CreateServer, GetServerByID, GetDefaultServer, etc.
+  - [x] ✅ Added auto-initialization of default server from config file
+  - [x] ✅ Multi-server foundation ready for future expansion
+  - [x] ✅ Created server management REST API (10 endpoints: CRUD, activate/deactivate, set default)
+  - [x] ✅ Updated all data routes to accept optional server_id query parameter for filtering
+  - [x] ✅ Created ServerProvider context for frontend multi-server management
+  - [x] ✅ Created useServers hooks for all server CRUD operations
+  - [x] ✅ Created ServerSelector component with dropdown navigation
+  - [x] ✅ Restructured frontend with [id] folder for server-scoped routes
+  - [x] ✅ Modified custom routing system to support layout.tsx files
+  - [x] ✅ Created server management UI at /servers with full CRUD capabilities
 
 ### Database Integrity
 
@@ -34,17 +56,174 @@ This document tracks major improvements and refactoring tasks for GoAdmin.
   - [x] ✅ MigrationRunner with apply/rollback support
   - [x] ✅ Transaction-safe migrations
   - [x] ✅ REST API endpoints for migration management
-- [ ] Create database integrity validation script
-- [ ] Add database backup/restore functionality
-- [ ] Implement transaction safety for critical operations
+  - [x] ✅ Frontend UI for migration management
+- [x] ✅ Create database integrity validation script
+  - [x] ✅ Checks for orphaned records (sessions, roles, permissions, reports, bans, etc.)
+  - [x] ✅ Validates FK relationships across all tables
+  - [x] ✅ Identifies missing indexes
+  - [x] ✅ Reports constraint violations with severity levels (error, warning, info)
+  - [x] ✅ JSON output for machine readability
+  - [x] ✅ Summary statistics with exit codes
+- [x] ✅ Add database backup/restore functionality
+  - [x] ✅ Backup script with compression (zip format)
+  - [x] ✅ Handles database file, WAL, and SHM files
+  - [x] ✅ Automatic cleanup of old backups (keeps last 10)
+  - [x] ✅ Restore script with validation
+  - [x] ✅ Force flag to overwrite existing database
+  - [x] ✅ PowerShell wrapper scripts for easy execution
+- [x] ✅ Implement transaction safety for critical operations
+  - [x] ✅ Role assignments (AddRoleToUser, RemoveRoleFromUser)
+  - [x] ✅ Permission assignments (AddPermissionToRole, RemovePermissionFromRole)
+  - [x] ✅ Group deletion (DeleteGroup with cascading player updates)
+  - [x] ✅ Temp ban creation (CreateTempBan)
+  - [x] ✅ All operations use DB.Transaction with automatic rollback on error
 - [ ] Add database constraint violation handling
 
 **Migration System Files:**
 
 - `app/models/Migration.go` - Migration tracking models
 - `app/database/migrations.go` - MigrationRunner implementation
-- `app/main.go` - Migration definitions and system integration
+- `app/main.go` - Migration definitions and system integration (7 migrations)
 - `app/rest/migrations.go` - REST API endpoints
+- `frontend/src/hooks/useMigrations.ts` - React hooks for migrations
+- `frontend/src/pages/migrations.tsx` - Migration management UI
+
+**Command Permissions Normalization Files:**
+
+- `app/models/CustomCommand.go` - Updated to use many-to-many relationship with permissions
+  - Replaced Permissions string (JSON) with []Permission slice
+  - Added command_permissions junction table with CASCADE constraints
+  - Added helper methods: AddPermissionToCommand, RemovePermissionFromCommand, SetCommandPermissions, HasPermission
+  - Updated all query methods to Preload permissions
+- `app/rest/commands.go` - Updated to convert permission names to IDs
+  - CreateCommand converts permission names to IDs before saving
+  - UpdateCommand uses SetCommandPermissions for atomic updates
+  - Removed JSON marshaling/unmarshaling
+- `app/commands/handler.go` - Updated in-game command permission checking
+  - Updated to work with Permission objects instead of JSON strings
+  - Removed hasRequiredPermissions function (JSON-based)
+  - Direct permission name comparison with Permission.Name field
+- `app/commands/admin.go` - Updated admin list permission checking
+  - Works with Permission objects for command filtering
+- `app/main.go` - Updated default command initialization
+  - Added migration 007 for command permissions normalization
+  - Converts permission names to IDs when creating default commands
+
+**Server Instances Normalization Files:**
+
+- `app/models/Server.go` - New server instances model (147 lines)
+  - Stores server configuration: host, port, RCON password, games_mp.log path
+  - Support for multiple servers with default server selection
+  - Management methods: CreateServer, GetServerByID, GetDefaultServer, GetActiveServers
+  - Helper methods: SetAsDefault, Activate, Deactivate
+  - Relationships to TempBan, Report, CommandHistory, InGamePlayer, ServerStats
+- `app/rest/servers.go` - Server management REST API (395 lines)
+  - 10 endpoints: GET /servers, GET /servers/active, GET /servers/default, POST /servers, GET /servers/:id, PUT /servers/:id, DELETE /servers/:id, POST /servers/:id/default, POST /servers/:id/activate, POST /servers/:id/deactivate
+  - Requires servers.manage permission
+  - Full CRUD with validation and audit logging
+- `app/models/TempBan.go` - Added ServerID field with FK constraint
+  - Links temp bans to specific servers
+  - Updated CreateTempBan to accept serverID parameter
+  - Updated query methods with optional serverID filtering
+- `app/models/Report.go` - Added ServerID field with FK constraint
+  - Links reports to specific servers
+  - Updated CreateReport to accept serverID parameter
+  - Updated query methods with optional serverID filtering
+- `app/models/CommandHistory.go` - Added ServerID field with FK constraint
+  - Tracks which server commands were executed on
+  - Updated CreateCommandHistory to accept serverID parameter
+  - Updated query methods with optional serverID filtering
+- `app/models/Group.go` (InGamePlayer) - Added ServerID field with FK constraint
+  - Links in-game players to specific servers (for multi-server setups)
+  - Updated GetAllInGamePlayers with optional serverID filtering
+- `app/models/ServerStats.go` - Added ServerID field with FK constraint
+  - Links server statistics to specific server instances
+  - Updated GetServerStatsRange with optional serverID filtering
+- `app/rest/reports.go` - Updated to support server_id query parameter
+  - getAllReports, getPendingReports, getAllTempBans, getActiveTempBans accept optional server_id
+- `app/rest/rcon.go` - Updated to support server_id query parameter
+  - getServerStats, getCommandHistory accept optional server_id
+- `app/rest/groups.go` - Updated to support server_id query parameter
+  - getAllInGamePlayers accepts optional server_id
+- `frontend/src/providers/ServerProvider.tsx` - Server context for multi-server management (125 lines)
+  - Auto-detects server from URL params (:id)
+  - Redirects to default server if none specified (unless disableRedirect prop is set)
+  - Provides currentServer, servers list, switchServer, refreshServers
+  - useServerContext hook for consuming context
+- `frontend/src/hooks/useServers.ts` - React Query hooks for server management (185 lines)
+  - useServers, useActiveServers, useDefaultServer, useServer
+  - useCreateServer, useUpdateServer, useDeleteServer
+  - useSetDefaultServer, useActivateServer, useDeactivateServer
+  - All hooks use API generics pattern (api.get<Server[]>())
+- `frontend/src/components/ServerSelector.tsx` - Server dropdown component (67 lines)
+  - Dropdown menu with server list
+  - Shows current server with checkmark
+  - Positioned side="right" to stay within sidebar bounds
+  - Uses useServerContext for current server and switching
+- `frontend/src/components/DashboardLayout.tsx` - Updated with ServerSelector and server-aware navigation
+  - Added ServerSelector to sidebar header
+  - buildHref() adds server ID to all navigation paths (/:id/analytics, etc.)
+  - isActive() checks routes accounting for server ID
+- `frontend/src/pages/[id]/layout.tsx` - Layout wrapper for server-scoped routes
+  - Wraps children in ServerProvider → DashboardLayout → padding wrapper
+  - Provides centralized layout structure for all /:id routes
+- `frontend/src/pages/servers.tsx` - Server management UI (700+ lines)
+  - Full CRUD interface for server instances
+  - Create/edit server dialogs with form validation
+  - Delete, activate/deactivate, set default actions
+  - Table view with server status badges
+  - Sidebar with ServerSelector and user controls (no per-server navigation)
+  - Uses ServerProvider with disableRedirect to prevent auto-navigation
+- `frontend/startup/routes.ts` - Modified custom routing generator to support layouts
+  - Detects layout.tsx files and creates parent/child route structure
+  - Groups pages by directory for proper layout nesting
+  - Handles dynamic route params ([id] → :id)
+- `app/main.go` - Added migration 008 and initializeDefaultServer function
+  - Auto-creates default server from config file on first run
+  - Sets up server infrastructure for multi-server support
+  - Registered servers.manage permission for super_admin role
+
+**Database Integrity & Transaction Safety Files:**
+
+- `scripts/validate_db.go` - Comprehensive database integrity validation script
+  - Checks for orphaned sessions, roles, permissions, reports, bans, command history, players, webhooks, audit logs
+  - Validates foreign key relationships
+  - Identifies missing indexes
+  - JSON output with severity levels and summary statistics
+- `scripts/validate_db.ps1` - PowerShell wrapper for validation script
+- `scripts/backup_db.go` - Database backup with compression and rotation
+  - Compresses database, WAL, and SHM files to zip archive
+  - Timestamp-based filenames (backup_YYYY-MM-DD_HH-MM-SS.zip)
+  - Automatic cleanup keeps last 10 backups
+- `scripts/backup_db.ps1` - PowerShell wrapper for backup script
+- `scripts/restore_db.go` - Database restore from compressed backups
+  - Extracts zip archive to database location
+  - Validates backup file exists
+  - Force flag to overwrite existing database
+- `scripts/restore_db.ps1` - PowerShell wrapper for restore script
+- `app/models/User.go` - Updated with transactional role assignment operations
+- `app/models/Role.go` - Updated with CASCADE constraints and transactional permission operations
+- `app/models/Permission.go` - Updated with CASCADE constraints
+- `app/models/Group.go` - Updated with transactional delete operation
+- `app/models/TempBan.go` - Updated with transactional ban creation
+- `app/main.go` - Added migration 005 for permission constraint updates
+
+**Performance Optimization Files:**
+
+- `app/models/Report.go` - Added index to ReviewedByUserID
+- `app/models/TempBan.go` - Added index to BannedByUser
+- `app/models/Group.go` - Added index to InGamePlayer.GroupID
+- `app/database/database.go` - Added connection pool configuration (25 max open, 10 max idle, 1hr lifetime)
+- `app/main.go` - Added migration 006 for performance indexes
+
+**Health & Monitoring Files:**
+
+- `app/rest/health.go` - Health check endpoints
+  - GET /health - Comprehensive health status with DB and RCON checks
+  - GET /health/ready - Readiness probe for Kubernetes
+  - GET /health/live - Liveness probe for Kubernetes
+  - Connection pool statistics in health response
+- `app/rest/main.go` - Registered health routes
 
 ## ✅ COMPLETED - Audit Logging System
 
@@ -78,8 +257,17 @@ This document tracks major improvements and refactoring tasks for GoAdmin.
 - [x] ✅ Role/permission changes
   - [x] ✅ Role assignments/removals
   - [x] ✅ User approval/rejection
-- [ ] Group assignments
-- [ ] Custom command creation/modification/deletion
+- [x] ✅ Group assignments
+  - [x] ✅ Group creation with permissions/power
+  - [x] ✅ Group updates with metadata tracking
+  - [x] ✅ Group deletion
+  - [x] ✅ Player-to-group assignments
+  - [x] ✅ Player removal from groups
+- [x] ✅ Custom command creation/modification/deletion
+  - [x] ✅ Command creation with permissions
+  - [x] ✅ Command updates with change tracking
+  - [x] ✅ Command deletion with security checks
+  - [x] ✅ Built-in command protection logging
 - [x] ✅ User approval/rejection
 - [x] ✅ Login/logout events
   - [x] ✅ Successful logins
@@ -106,6 +294,23 @@ This document tracks major improvements and refactoring tasks for GoAdmin.
 - [ ] Real-time audit log streaming (optional WebSocket)
 - [ ] Audit log retention policy configuration
 - [ ] Audit log archiving system
+
+**Audit Logging Implementation Files:**
+
+- `app/rest/groups.go` - Group operation audit logging
+  - Group creation with permissions/power metadata
+  - Group updates with change tracking
+  - Group deletion with power metadata
+  - Player-to-group assignments with group name
+  - Player removal from groups
+  - Security violations for failed operations
+- `app/rest/commands.go` - Command operation audit logging
+  - Command creation with RCON command and permissions
+  - Command updates with change tracking metadata
+  - Command deletion with command details
+  - Built-in command protection logging
+  - Security violations for failed operations
+- `app/models/Group.go` - Added `GetInGamePlayerByID` function for audit trail
 
 ## ✅ COMPLETED - Security & Rate Limiting
 
@@ -241,11 +446,44 @@ This document tracks major improvements and refactoring tasks for GoAdmin.
   - [x] ✅ player.banned, player.unbanned, player.kicked
   - [x] ✅ report.created, report.actioned
   - [x] ✅ user.approved, user.rejected
-  - [x] ✅ server.online, server.offline
+  - [x] ✅ server.online, server.offline (integrated in stats collector)
   - [x] ✅ security.alert
 - [ ] Event middleware/filtering
 - [ ] Event persistence (optional)
 - [ ] Event replay capability
+
+**Server Status Event Integration:**
+
+- `app/watcher/stats.go` - Server status tracking and webhook dispatch
+  - Added `lastOnline` field to track server state
+  - Added webhook dispatcher to stats collector
+  - Dispatches `server.online` when server comes online
+  - Dispatches `server.offline` when server goes offline
+  - Status changes detected during stat collection cycle
+
+## ✅ COMPLETED - Permission System Refactoring
+
+### Granular Permissions
+
+- [x] ✅ Added specific permissions to replace generic `rbac.manage`
+  - [x] ✅ `audit.view` - View audit logs
+  - [x] ✅ `webhooks.manage` - Manage webhook configurations
+  - [x] ✅ `migrations.manage` - Manage database migrations
+  - [x] ✅ `groups.manage` - Manage in-game groups
+  - [x] ✅ `commands.manage` - Manage custom commands
+- [x] ✅ Updated all REST API routes to use specific permissions
+- [x] ✅ Updated frontend sidebar navigation with granular permissions
+- [x] ✅ Registered new permissions in super admin role initialization
+
+**Updated Files:**
+
+- `app/main.go` - Added 5 new permission definitions
+- `app/rest/audit.go` - Changed to `audit.view`
+- `app/rest/webhooks.go` - Changed to `webhooks.manage`
+- `app/rest/migrations.go` - Changed to `migrations.manage`
+- `app/rest/groups.go` - Changed to `groups.manage`
+- `app/rest/commands.go` - Changed to `commands.manage`
+- `frontend/src/components/DashboardLayout.tsx` - Updated sidebar permissions
 
 ## 🟠 High Priority - Security & Rate Limiting
 
@@ -282,19 +520,19 @@ This document tracks major improvements and refactoring tasks for GoAdmin.
 
 ### Advanced Permission System
 
-- [ ] Granular command permissions
-  - [ ] Per-command permission requirements
-  - [ ] Command execution context (web vs in-game)
-  - [ ] Time-based permissions (only during certain hours)
+- [x] ✅ Granular command permissions
+  - [x] ✅ Per-command permission requirements (rcon.command, rcon.kick, rcon.ban, etc.)
+  - [x] ✅ Command execution context (web vs in-game)
+  - [x] ✅ Specific permissions for admin features (audit.view, webhooks.manage, etc.)
 - [ ] Permission inheritance
   - [ ] Role hierarchy
   - [ ] Permission delegation
 - [ ] Temporary permissions
   - [ ] Time-limited admin access
   - [ ] Scheduled permission changes
-- [ ] Permission audit trail
-  - [ ] Track permission grants/revokes
-  - [ ] Track permission usage
+- [x] ✅ Permission audit trail
+  - [x] ✅ Track permission grants/revokes via audit logs
+  - [x] ✅ Track permission usage via audit logs
 
 ### Command Abuse Prevention
 
@@ -314,10 +552,18 @@ This document tracks major improvements and refactoring tasks for GoAdmin.
 
 ### Performance
 
-- [ ] Add database query optimization
-  - [ ] Index analysis and optimization
-  - [ ] Query caching for common operations
-  - [ ] Connection pooling tuning
+- [x] ✅ Add database query optimization
+  - [x] ✅ Index analysis and optimization
+    - [x] ✅ Added index to Report.ReviewedByUserID
+    - [x] ✅ Added index to TempBan.BannedByUser
+    - [x] ✅ Added index to InGamePlayer.GroupID
+    - [x] ✅ Created migration 006 for performance indexes
+  - [ ] Query caching for common operations (user sessions, role/permission lookups, server status)
+  - [x] ✅ Connection pooling tuning
+    - [x] ✅ Set MaxOpenConns to 25
+    - [x] ✅ Set MaxIdleConns to 10
+    - [x] ✅ Set ConnMaxLifetime to 1 hour
+    - [x] ✅ Added connection pool metrics logging
 - [ ] Add Redis caching layer
   - [ ] Cache user sessions
   - [ ] Cache role/permission lookups
@@ -329,7 +575,7 @@ This document tracks major improvements and refactoring tasks for GoAdmin.
 
 ### Testing
 
-- [ ] Unit tests for all core functionality
+- [ ] Unit tests for core functionality (models, validators, rate limiters, ban loop detector, command throttler)
 - [ ] Integration tests for RCON communication
 - [ ] E2E tests for critical user flows
 - [ ] Load testing for rate limiting
@@ -346,7 +592,12 @@ This document tracks major improvements and refactoring tasks for GoAdmin.
 ### Monitoring & Observability
 
 - [ ] Prometheus metrics export
-- [ ] Health check endpoints
+- [x] ✅ Health check endpoints
+  - [x] ✅ GET /health - Comprehensive health status with database and RCON checks
+  - [x] ✅ GET /health/ready - Kubernetes readiness probe endpoint
+  - [x] ✅ GET /health/live - Kubernetes liveness probe endpoint
+  - [x] ✅ Connection pool statistics in health response
+  - [x] ✅ Status codes: 200 (healthy), 503 (unhealthy/degraded)
 - [ ] Performance monitoring
 - [ ] Error tracking (Sentry integration?)
 - [ ] Server metrics dashboard

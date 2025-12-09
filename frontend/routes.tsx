@@ -1,29 +1,40 @@
-import {RouteObject} from "react-router-dom";
+import type {RouteObject} from "react-router-dom";
 const routes: RouteObject[] = [];
-import Analytics from "./src/pages/analytics";
-routes.push({ path: "/analytics", element: <Analytics /> });
-import Audit from "./src/pages/audit";
-routes.push({ path: "/audit", element: <Audit /> });
-import Commands from "./src/pages/commands";
-routes.push({ path: "/commands", element: <Commands /> });
-import Console from "./src/pages/console";
-routes.push({ path: "/console", element: <Console /> });
-import Groups from "./src/pages/groups";
-routes.push({ path: "/groups", element: <Groups /> });
 import Index from "./src/pages/index";
 routes.push({ path: "/", element: <Index /> });
 import Login from "./src/pages/login";
 routes.push({ path: "/login", element: <Login /> });
-import Migrations from "./src/pages/migrations";
-routes.push({ path: "/migrations", element: <Migrations /> });
-import Players from "./src/pages/players";
-routes.push({ path: "/players", element: <Players /> });
-import Rbac from "./src/pages/rbac";
-routes.push({ path: "/rbac", element: <Rbac /> });
-import Reports from "./src/pages/reports";
-routes.push({ path: "/reports", element: <Reports /> });
-import Status from "./src/pages/status";
-routes.push({ path: "/status", element: <Status /> });
-import Webhooks from "./src/pages/webhooks";
-routes.push({ path: "/webhooks", element: <Webhooks /> });
+import Servers from "./src/pages/servers";
+routes.push({ path: "/servers", element: <Servers /> });
+import IdLayout from "./src/pages/[id]/layout";
+import IdAnalytics from "./src/pages/[id]/analytics";
+import IdAudit from "./src/pages/[id]/audit";
+import IdCommands from "./src/pages/[id]/commands";
+import IdConsole from "./src/pages/[id]/console";
+import IdGroups from "./src/pages/[id]/groups";
+import IdIndex from "./src/pages/[id]/index";
+import IdMigrations from "./src/pages/[id]/migrations";
+import IdPlayers from "./src/pages/[id]/players";
+import IdRbac from "./src/pages/[id]/rbac";
+import IdReports from "./src/pages/[id]/reports";
+import IdStatus from "./src/pages/[id]/status";
+import IdWebhooks from "./src/pages/[id]/webhooks";
+routes.push({
+  path: "/:id",
+  element: <IdLayout />,
+  children: [
+    { path: "analytics", element: <IdAnalytics /> },
+    { path: "audit", element: <IdAudit /> },
+    { path: "commands", element: <IdCommands /> },
+    { path: "console", element: <IdConsole /> },
+    { path: "groups", element: <IdGroups /> },
+    { index: true, element: <IdIndex /> },
+    { path: "migrations", element: <IdMigrations /> },
+    { path: "players", element: <IdPlayers /> },
+    { path: "rbac", element: <IdRbac /> },
+    { path: "reports", element: <IdReports /> },
+    { path: "status", element: <IdStatus /> },
+    { path: "webhooks", element: <IdWebhooks /> },
+  ],
+});
 export default routes;

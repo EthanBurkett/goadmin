@@ -14,8 +14,8 @@ type Role struct {
 	DeletedAt   gorm.DeletedAt `gorm:"index" json:"deletedAt,omitempty"`
 	Name        string         `gorm:"uniqueIndex;not null" json:"name"`
 	Description string         `json:"description"`
-	Users       []User         `gorm:"many2many:user_roles;" json:"users,omitempty"`
-	Permissions []Permission   `gorm:"many2many:role_permissions;" json:"permissions,omitempty"`
+	Users       []User         `gorm:"many2many:user_roles;constraint:OnDelete:CASCADE;" json:"users,omitempty"`
+	Permissions []Permission   `gorm:"many2many:role_permissions;constraint:OnDelete:CASCADE;" json:"permissions,omitempty"`
 }
 
 type Permission struct {
@@ -25,7 +25,7 @@ type Permission struct {
 	DeletedAt   gorm.DeletedAt `gorm:"index" json:"deletedAt,omitempty"`
 	Name        string         `gorm:"uniqueIndex;not null" json:"name"`
 	Description string         `json:"description"`
-	Roles       []Role         `gorm:"many2many:role_permissions;" json:"roles,omitempty"`
+	Roles       []Role         `gorm:"many2many:role_permissions;constraint:OnDelete:CASCADE;" json:"roles,omitempty"`
 }
 
 func CreateRole(name, description string) (*Role, error) {
@@ -117,25 +117,29 @@ func DeletePermission(id uint) error {
 }
 
 func AddPermissionToRole(roleID, permissionID uint) error {
-	role, err := GetRoleByID(roleID)
-	if err != nil {
-		return err
-	}
-	permission, err := GetPermissionByID(permissionID)
-	if err != nil {
-		return err
-	}
-	return database.DB.Model(role).Association("Permissions").Append(permission)
+	return database.DB.Transaction(func(tx *gorm.DB) error {
+		var role Role
+		if err := tx.Preload("Permissions").First(&role, roleID).Error; err != nil {
+			return err
+		}
+		var permission Permission
+		if err := tx.First(&permission, permissionID).Error; err != nil {
+			return err
+		}
+		return tx.Model(&role).Association("Permissions").Append(&permission)
+	})
 }
 
 func RemovePermissionFromRole(roleID, permissionID uint) error {
-	role, err := GetRoleByID(roleID)
-	if err != nil {
-		return err
-	}
-	permission, err := GetPermissionByID(permissionID)
-	if err != nil {
-		return err
-	}
-	return database.DB.Model(role).Association("Permissions").Delete(permission)
+	return database.DB.Transaction(func(tx *gorm.DB) error {
+		var role Role
+		if err := tx.Preload("Permissions").First(&role, roleID).Error; err != nil {
+			return err
+		}
+		var permission Permission
+		if err := tx.First(&permission, permissionID).Error; err != nil {
+			return err
+		}
+		return tx.Model(&role).Association("Permissions").Delete(&permission)
+	})
 }

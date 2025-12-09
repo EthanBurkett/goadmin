@@ -65,11 +65,6 @@ func New(cfg *config.Config, rconClient *rcon.Client, migrations []database.Migr
 		migrations: migrations,
 	}
 
-	r.GET("/health", func(c *gin.Context) {
-		c.Set("data", gin.H{"status": "ok"})
-		c.Status(200)
-	})
-
 	RegisterPlayerRoutes(r, api)
 	RegisterStatusRoute(r, api)
 	RegisterAuthRoutes(r, api)
@@ -82,6 +77,8 @@ func New(cfg *config.Config, rconClient *rcon.Client, migrations []database.Migr
 	RegisterAuditRoutes(r, api)
 	RegisterWebhookRoutes(r, api)
 	RegisterMigrationRoutes(r, api)
+	RegisterHealthRoutes(r, api)
+	RegisterServerRoutes(r, api)
 
 	rconClient.SendCommand("say ^5GoAdmin ^7now serving.")
 

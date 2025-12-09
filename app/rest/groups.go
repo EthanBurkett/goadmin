@@ -47,17 +47,17 @@ func RegisterGroupRoutes(r *gin.Engine, api *Api) {
 	groups.Use(AuthMiddleware())
 	{
 		// Group management
-		groups.GET("", RequirePermission("rbac.manage"), getAllGroups(api))
-		groups.POST("", RequirePermission("rbac.manage"), createGroup(api))
-		groups.GET("/:id", RequirePermission("rbac.manage"), getGroup(api))
-		groups.PUT("/:id", RequirePermission("rbac.manage"), updateGroup(api))
-		groups.DELETE("/:id", RequirePermission("rbac.manage"), deleteGroup(api))
+		groups.GET("", RequirePermission("groups.manage"), getAllGroups(api))
+		groups.POST("", RequirePermission("groups.manage"), createGroup(api))
+		groups.GET("/:id", RequirePermission("groups.manage"), getGroup(api))
+		groups.PUT("/:id", RequirePermission("groups.manage"), updateGroup(api))
+		groups.DELETE("/:id", RequirePermission("groups.manage"), deleteGroup(api))
 
 		// In-game player management
 		groups.GET("/players", RequirePermission("players.view"), getAllInGamePlayers(api))
-		groups.POST("/players", RequirePermission("rbac.manage"), createInGamePlayer(api))
-		groups.PUT("/players/:id/assign", RequirePermission("rbac.manage"), assignPlayerToGroup(api))
-		groups.DELETE("/players/:id/group", RequirePermission("rbac.manage"), removePlayerFromGroup(api))
+		groups.POST("/players", RequirePermission("groups.manage"), createInGamePlayer(api))
+		groups.PUT("/players/:id/assign", RequirePermission("groups.manage"), assignPlayerToGroup(api))
+		groups.DELETE("/players/:id/group", RequirePermission("groups.manage"), removePlayerFromGroup(api))
 	}
 }
 
@@ -115,10 +115,26 @@ func createGroup(api *Api) gin.HandlerFunc {
 
 		err = models.CreateGroup(req.Name, req.Power, string(permissionsJSON), req.Description)
 		if err != nil {
+			Audit.LogAction(c, models.ActionSecurityViolation, models.SourceWebUI,
+				false, err.Error(), "group", "", req.Name,
+				map[string]interface{}{
+					"power":       req.Power,
+					"permissions": req.Permissions,
+				},
+				"Failed to create group")
 			c.Set("error", "Failed to create group")
 			c.Status(http.StatusInternalServerError)
 			return
 		}
+
+		Audit.LogAction(c, "group_created", models.SourceWebUI,
+			true, "", "group", "", req.Name,
+			map[string]interface{}{
+				"power":       req.Power,
+				"permissions": req.Permissions,
+				"description": req.Description,
+			},
+			"Group created successfully")
 
 		c.Set("data", gin.H{"message": "Group created successfully"})
 		c.Status(http.StatusCreated)
@@ -131,6 +147,14 @@ func updateGroup(api *Api) gin.HandlerFunc {
 		if err != nil {
 			c.Set("error", "Invalid group ID")
 			c.Status(http.StatusBadRequest)
+			return
+		}
+
+		// Get existing group for audit trail
+		group, err := models.GetGroupByID(uint(id))
+		if err != nil {
+			c.Set("error", "Group not found")
+			c.Status(http.StatusNotFound)
 			return
 		}
 
@@ -163,10 +187,19 @@ func updateGroup(api *Api) gin.HandlerFunc {
 
 		err = models.UpdateGroup(uint(id), updates)
 		if err != nil {
+			Audit.LogAction(c, models.ActionSecurityViolation, models.SourceWebUI,
+				false, err.Error(), "group", strconv.FormatUint(uint64(id), 10), group.Name,
+				updates,
+				"Failed to update group")
 			c.Set("error", "Failed to update group")
 			c.Status(http.StatusInternalServerError)
 			return
 		}
+
+		Audit.LogAction(c, "group_updated", models.SourceWebUI,
+			true, "", "group", strconv.FormatUint(uint64(id), 10), group.Name,
+			updates,
+			"Group updated successfully")
 
 		c.Set("data", gin.H{"message": "Group updated successfully"})
 		c.Status(http.StatusOK)
@@ -182,12 +215,29 @@ func deleteGroup(api *Api) gin.HandlerFunc {
 			return
 		}
 
+		// Get group before deletion for audit trail
+		group, err := models.GetGroupByID(uint(id))
+		if err != nil {
+			c.Set("error", "Group not found")
+			c.Status(http.StatusNotFound)
+			return
+		}
+
 		err = models.DeleteGroup(uint(id))
 		if err != nil {
+			Audit.LogAction(c, models.ActionSecurityViolation, models.SourceWebUI,
+				false, err.Error(), "group", strconv.FormatUint(uint64(id), 10), group.Name,
+				nil,
+				"Failed to delete group")
 			c.Set("error", "Failed to delete group")
 			c.Status(http.StatusInternalServerError)
 			return
 		}
+
+		Audit.LogAction(c, "group_deleted", models.SourceWebUI,
+			true, "", "group", strconv.FormatUint(uint64(id), 10), group.Name,
+			map[string]interface{}{"power": group.Power},
+			"Group deleted successfully")
 
 		c.Set("data", gin.H{"message": "Group deleted successfully"})
 		c.Status(http.StatusOK)
@@ -196,7 +246,20 @@ func deleteGroup(api *Api) gin.HandlerFunc {
 
 func getAllInGamePlayers(api *Api) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		players, err := models.GetAllInGamePlayers()
+		// Optional server ID filter
+		var serverID *uint
+		if serverIDStr := c.Query("server_id"); serverIDStr != "" {
+			id, err := strconv.ParseUint(serverIDStr, 10, 32)
+			if err != nil {
+				c.Set("error", "Invalid server ID")
+				c.Status(http.StatusBadRequest)
+				return
+			}
+			sid := uint(id)
+			serverID = &sid
+		}
+
+		players, err := models.GetAllInGamePlayers(serverID)
 		if err != nil {
 			c.Set("error", "Failed to retrieve players")
 			c.Status(http.StatusInternalServerError)
@@ -248,6 +311,14 @@ func assignPlayerToGroup(api *Api) gin.HandlerFunc {
 			return
 		}
 
+		// Get player for audit trail
+		player, err := models.GetInGamePlayerByID(uint(id))
+		if err != nil {
+			c.Set("error", "Player not found")
+			c.Status(http.StatusNotFound)
+			return
+		}
+
 		var req AssignPlayerRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.Set("error", err.Error())
@@ -255,17 +326,35 @@ func assignPlayerToGroup(api *Api) gin.HandlerFunc {
 			return
 		}
 
+		var action models.ActionType
+		var groupName string
 		if req.GroupID == nil {
 			err = models.RemovePlayerFromGroup(uint(id))
+			action = "player_removed_from_group"
+			groupName = "none"
 		} else {
 			err = models.AssignPlayerToGroup(uint(id), *req.GroupID)
+			action = "player_assigned_to_group"
+			group, _ := models.GetGroupByID(*req.GroupID)
+			if group != nil {
+				groupName = group.Name
+			}
 		}
 
 		if err != nil {
+			Audit.LogAction(c, models.ActionSecurityViolation, models.SourceWebUI,
+				false, err.Error(), "player", player.GUID, player.Name,
+				map[string]interface{}{"group_id": req.GroupID},
+				"Failed to update player group")
 			c.Set("error", "Failed to update player group")
 			c.Status(http.StatusInternalServerError)
 			return
 		}
+
+		Audit.LogAction(c, action, models.SourceWebUI,
+			true, "", "player", player.GUID, player.Name,
+			map[string]interface{}{"group": groupName},
+			"Player group updated successfully")
 
 		c.Set("data", gin.H{"message": "Player group updated successfully"})
 		c.Status(http.StatusOK)

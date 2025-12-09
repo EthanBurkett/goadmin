@@ -16,14 +16,16 @@ type Report struct {
 	Reason           string    `gorm:"type:text;not null" json:"reason"` // Reason for report
 	Status           string    `gorm:"default:'pending'" json:"status"`  // pending, reviewed, actioned, dismissed
 	ActionTaken      string    `gorm:"type:text" json:"actionTaken"`     // What action was taken (if any)
-	ReviewedByUserID *uint     `json:"reviewedByUserId"`                 // User who reviewed
+	ReviewedByUserID *uint     `gorm:"index" json:"reviewedByUserId"`    // User who reviewed
 	ReviewedBy       *User     `gorm:"foreignKey:ReviewedByUserID;constraint:OnDelete:SET NULL" json:"reviewedBy,omitempty"`
+	ServerID         *uint     `gorm:"index" json:"serverId,omitempty"` // Server where report was created
+	Server           *Server   `gorm:"foreignKey:ServerID;constraint:OnDelete:SET NULL" json:"server,omitempty"`
 	CreatedAt        time.Time `json:"createdAt"`
 	UpdatedAt        time.Time `json:"updatedAt"`
 }
 
 // CreateReport creates a new player report
-func CreateReport(reporterName, reporterGUID, reportedName, reportedGUID, reason string) (*Report, error) {
+func CreateReport(reporterName, reporterGUID, reportedName, reportedGUID, reason string, serverID *uint) (*Report, error) {
 	db := database.DB
 
 	report := &Report{
@@ -32,6 +34,7 @@ func CreateReport(reporterName, reporterGUID, reportedName, reportedGUID, reason
 		ReportedName: reportedName,
 		ReportedGUID: reportedGUID,
 		Reason:       reason,
+		ServerID:     serverID,
 		Status:       "pending",
 	}
 
@@ -39,19 +42,31 @@ func CreateReport(reporterName, reporterGUID, reportedName, reportedGUID, reason
 	return report, err
 }
 
-// GetAllReports gets all reports
-func GetAllReports() ([]Report, error) {
+// GetAllReports gets all reports, optionally filtered by server ID
+func GetAllReports(serverID *uint) ([]Report, error) {
 	db := database.DB
 	var reports []Report
-	err := db.Preload("ReviewedBy").Order("created_at DESC").Find(&reports).Error
+	query := db.Preload("ReviewedBy").Preload("Server")
+
+	if serverID != nil {
+		query = query.Where("server_id = ?", *serverID)
+	}
+
+	err := query.Order("created_at DESC").Find(&reports).Error
 	return reports, err
 }
 
-// GetPendingReports gets all pending reports
-func GetPendingReports() ([]Report, error) {
+// GetPendingReports gets all pending reports, optionally filtered by server ID
+func GetPendingReports(serverID *uint) ([]Report, error) {
 	db := database.DB
 	var reports []Report
-	err := db.Where("status = ?", "pending").Order("created_at DESC").Find(&reports).Error
+	query := db.Preload("ReviewedBy").Preload("Server").Where("status = ?", "pending")
+
+	if serverID != nil {
+		query = query.Where("server_id = ?", *serverID)
+	}
+
+	err := query.Order("created_at DESC").Find(&reports).Error
 	return reports, err
 }
 

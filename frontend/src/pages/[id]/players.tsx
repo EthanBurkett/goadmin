@@ -1,5 +1,4 @@
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { DashboardLayout } from "@/components/DashboardLayout";
 import { DataTable } from "@/components/DataTable";
 import { usePlayers } from "@/hooks/usePlayers";
 import {
@@ -158,45 +157,43 @@ function Players() {
 
   return (
     <ProtectedRoute requiredPermission="players.view">
-      <DashboardLayout>
-        <div className="p-8 space-y-6 bg-background min-h-screen">
-          <div>
-            <h1 className="text-4xl font-bold text-foreground mb-2">Players</h1>
-            <p className="text-muted-foreground">
-              View and manage online players
-            </p>
-          </div>
-
-          <Card className="bg-card border-border">
-            <CardHeader>
-              <CardTitle className="text-foreground">Online Players</CardTitle>
-              <CardDescription className="text-muted-foreground">
-                {players.data?.length || 0} players currently connected
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {players.isLoading ? (
-                <div className="flex items-center justify-center h-64">
-                  <p className="text-foreground text-lg">Loading players...</p>
-                </div>
-              ) : players.isError ? (
-                <div className="flex items-center justify-center h-64">
-                  <p className="text-destructive text-lg">
-                    Error loading players.
-                  </p>
-                </div>
-              ) : (
-                <DataTable
-                  columns={columns}
-                  data={players.data || []}
-                  searchKey="strippedName"
-                  searchPlaceholder="Search by name..."
-                />
-              )}
-            </CardContent>
-          </Card>
+      <div className="space-y-6 bg-background min-h-screen">
+        <div>
+          <h1 className="text-4xl font-bold text-foreground mb-2">Players</h1>
+          <p className="text-muted-foreground">
+            View and manage online players
+          </p>
         </div>
-      </DashboardLayout>
+
+        <Card className="bg-card border-border">
+          <CardHeader>
+            <CardTitle className="text-foreground">Online Players</CardTitle>
+            <CardDescription className="text-muted-foreground">
+              {players.data?.length || 0} players currently connected
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {players.isLoading ? (
+              <div className="flex items-center justify-center h-64">
+                <p className="text-foreground text-lg">Loading players...</p>
+              </div>
+            ) : players.isError ? (
+              <div className="flex items-center justify-center h-64">
+                <p className="text-destructive text-lg">
+                  Error loading players.
+                </p>
+              </div>
+            ) : (
+              <DataTable
+                columns={columns}
+                data={players.data || []}
+                searchKey="strippedName"
+                searchPlaceholder="Search by name..."
+              />
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </ProtectedRoute>
   );
 }

@@ -27,7 +27,7 @@ type WebhookRequest struct {
 func RegisterWebhookRoutes(router *gin.Engine, api *Api) {
 	webhooks := router.Group("/webhooks")
 	webhooks.Use(AuthMiddleware())
-	webhooks.Use(RequirePermission("rbac.manage")) // Only admins can manage webhooks
+	webhooks.Use(RequirePermission("webhooks.manage")) // Only admins can manage webhooks
 
 	webhooks.GET("", getWebhooks(api))
 	webhooks.POST("", createWebhook(api))

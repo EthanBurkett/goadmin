@@ -1,7 +1,6 @@
 package rest
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 
@@ -38,11 +37,11 @@ func RegisterCommandRoutes(r *gin.Engine, api *Api) {
 	commands := r.Group("/commands")
 	commands.Use(AuthMiddleware())
 	{
-		commands.GET("", RequirePermission("rbac.manage"), getAllCommands(api))
-		commands.POST("", RequirePermission("rbac.manage"), createCommand(api))
-		commands.GET("/:id", RequirePermission("rbac.manage"), getCommand(api))
-		commands.PUT("/:id", RequirePermission("rbac.manage"), updateCommand(api))
-		commands.DELETE("/:id", RequirePermission("rbac.manage"), deleteCommand(api))
+		commands.GET("", RequirePermission("commands.manage"), getAllCommands(api))
+		commands.POST("", RequirePermission("commands.manage"), createCommand(api))
+		commands.GET("/:id", RequirePermission("commands.manage"), getCommand(api))
+		commands.PUT("/:id", RequirePermission("commands.manage"), updateCommand(api))
+		commands.DELETE("/:id", RequirePermission("commands.manage"), deleteCommand(api))
 	}
 }
 
@@ -98,16 +97,16 @@ func createCommand(api *Api) gin.HandlerFunc {
 			return
 		}
 
-		// Convert permissions array to JSON string
-		permissionsJSON := "[]"
-		if req.Permissions != nil && len(req.Permissions) > 0 {
-			data, err := json.Marshal(req.Permissions)
+		// Convert permission names to IDs
+		var permissionIDs []uint
+		for _, permName := range req.Permissions {
+			perm, err := models.GetPermissionByName(permName)
 			if err != nil {
-				c.Set("error", "Invalid permissions format")
+				c.Set("error", "Invalid permission: "+permName)
 				c.Status(http.StatusBadRequest)
 				return
 			}
-			permissionsJSON = string(data)
+			permissionIDs = append(permissionIDs, perm.ID)
 		}
 
 		// Default to "both" if not specified
@@ -121,18 +120,34 @@ func createCommand(api *Api) gin.HandlerFunc {
 			req.Usage,
 			req.Description,
 			req.RconCommand,
-			permissionsJSON,
 			requirementType,
 			req.MinArgs,
 			req.MaxArgs,
 			req.MinPower,
 			false, // User-created commands are not built-in
+			permissionIDs,
 		)
 		if err != nil {
+			Audit.LogAction(c, models.ActionSecurityViolation, models.SourceWebUI,
+				false, err.Error(), "command", "", req.Name,
+				map[string]interface{}{
+					"rcon":      req.RconCommand,
+					"min_power": req.MinPower,
+				},
+				"Failed to create command")
 			c.Set("error", "Failed to create command")
 			c.Status(http.StatusInternalServerError)
 			return
 		}
+
+		Audit.LogAction(c, models.ActionCommandCreate, models.SourceWebUI,
+			true, "", "command", "", req.Name,
+			map[string]interface{}{
+				"rcon":        req.RconCommand,
+				"min_power":   req.MinPower,
+				"permissions": req.Permissions,
+			},
+			"Command created successfully")
 
 		c.Set("data", gin.H{"message": "Command created successfully"})
 		c.Status(http.StatusCreated)
@@ -148,7 +163,7 @@ func updateCommand(api *Api) gin.HandlerFunc {
 			return
 		}
 
-		// Check if command is built-in
+		// Check if command is built-in and pre-fetch for audit trail
 		cmd, err := models.GetCustomCommandByID(uint(id))
 		if err != nil {
 			c.Set("error", "Command not found")
@@ -156,6 +171,12 @@ func updateCommand(api *Api) gin.HandlerFunc {
 			return
 		}
 		if cmd.IsBuiltIn {
+			Audit.LogAction(c, models.ActionSecurityViolation, models.SourceWebUI,
+				false, "Attempted to modify built-in command", "command", "", cmd.Name,
+				map[string]interface{}{
+					"reason": "cannot_modify_builtin",
+				},
+				"Cannot modify built-in commands")
 			c.Set("error", "Cannot modify built-in commands")
 			c.Status(http.StatusForbidden)
 			return
@@ -190,15 +211,6 @@ func updateCommand(api *Api) gin.HandlerFunc {
 		if req.MinPower != nil {
 			updates["min_power"] = *req.MinPower
 		}
-		if req.Permissions != nil {
-			permissionsJSON, err := json.Marshal(req.Permissions)
-			if err != nil {
-				c.Set("error", "Invalid permissions format")
-				c.Status(http.StatusBadRequest)
-				return
-			}
-			updates["permissions"] = string(permissionsJSON)
-		}
 		if req.RequirementType != nil {
 			updates["requirement_type"] = *req.RequirementType
 		}
@@ -206,12 +218,44 @@ func updateCommand(api *Api) gin.HandlerFunc {
 			updates["enabled"] = *req.Enabled
 		}
 
+		// Handle permissions separately using the association API
+		if req.Permissions != nil {
+			var permissionIDs []uint
+			for _, permName := range req.Permissions {
+				perm, err := models.GetPermissionByName(permName)
+				if err != nil {
+					c.Set("error", "Invalid permission: "+permName)
+					c.Status(http.StatusBadRequest)
+					return
+				}
+				permissionIDs = append(permissionIDs, perm.ID)
+			}
+			if err := cmd.SetCommandPermissions(permissionIDs); err != nil {
+				c.Set("error", "Failed to update permissions")
+				c.Status(http.StatusInternalServerError)
+				return
+			}
+		}
+
 		err = models.UpdateCustomCommand(uint(id), updates)
 		if err != nil {
+			Audit.LogAction(c, models.ActionSecurityViolation, models.SourceWebUI,
+				false, err.Error(), "command", "", cmd.Name,
+				map[string]interface{}{
+					"updates": updates,
+				},
+				"Failed to update command")
 			c.Set("error", "Failed to update command")
 			c.Status(http.StatusInternalServerError)
 			return
 		}
+
+		Audit.LogAction(c, models.ActionCommandUpdate, models.SourceWebUI,
+			true, "", "command", "", cmd.Name,
+			map[string]interface{}{
+				"updates": updates,
+			},
+			"Command updated successfully")
 
 		c.Set("data", gin.H{"message": "Command updated successfully"})
 		c.Status(http.StatusOK)
@@ -227,7 +271,7 @@ func deleteCommand(api *Api) gin.HandlerFunc {
 			return
 		}
 
-		// Check if command is built-in
+		// Check if command is built-in and pre-fetch for audit trail
 		cmd, err := models.GetCustomCommandByID(uint(id))
 		if err != nil {
 			c.Set("error", "Command not found")
@@ -235,6 +279,12 @@ func deleteCommand(api *Api) gin.HandlerFunc {
 			return
 		}
 		if cmd.IsBuiltIn {
+			Audit.LogAction(c, models.ActionSecurityViolation, models.SourceWebUI,
+				false, "Attempted to delete built-in command", "command", "", cmd.Name,
+				map[string]interface{}{
+					"reason": "cannot_delete_builtin",
+				},
+				"Cannot delete built-in commands")
 			c.Set("error", "Cannot delete built-in commands")
 			c.Status(http.StatusForbidden)
 			return
@@ -242,10 +292,23 @@ func deleteCommand(api *Api) gin.HandlerFunc {
 
 		err = models.DeleteCustomCommand(uint(id))
 		if err != nil {
+			Audit.LogAction(c, models.ActionSecurityViolation, models.SourceWebUI,
+				false, err.Error(), "command", "", cmd.Name,
+				map[string]interface{}{},
+				"Failed to delete command")
 			c.Set("error", "Failed to delete command")
 			c.Status(http.StatusInternalServerError)
 			return
 		}
+
+		Audit.LogAction(c, models.ActionCommandDelete, models.SourceWebUI,
+			true, "", "command", "", cmd.Name,
+			map[string]interface{}{
+				"rcon":        cmd.RconCommand,
+				"min_power":   cmd.MinPower,
+				"permissions": cmd.Permissions,
+			},
+			"Command deleted successfully")
 
 		c.Set("data", gin.H{"message": "Command deleted successfully"})
 		c.Status(http.StatusOK)

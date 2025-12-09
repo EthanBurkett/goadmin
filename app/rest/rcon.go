@@ -3,6 +3,7 @@ package rest
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/ethanburkett/goadmin/app/models"
@@ -135,9 +136,9 @@ func sendCommand(api *Api) gin.HandlerFunc {
 
 		// Save command history
 		if success {
-			models.CreateCommandHistory(user.ID, sanitizedCommand, response, true)
+			models.CreateCommandHistory(user.ID, sanitizedCommand, response, true, nil)
 		} else {
-			models.CreateCommandHistory(user.ID, sanitizedCommand, err.Error(), false)
+			models.CreateCommandHistory(user.ID, sanitizedCommand, err.Error(), false, nil)
 		}
 
 		// Log to audit trail
@@ -186,9 +187,9 @@ func kickPlayer(api *Api) gin.HandlerFunc {
 
 		// Save command history
 		if success {
-			models.CreateCommandHistory(user.ID, command, response, true)
+			models.CreateCommandHistory(user.ID, command, response, true, nil)
 		} else {
-			models.CreateCommandHistory(user.ID, command, err.Error(), false)
+			models.CreateCommandHistory(user.ID, command, err.Error(), false, nil)
 		}
 
 		// Log to audit trail
@@ -237,9 +238,9 @@ func banPlayer(api *Api) gin.HandlerFunc {
 
 		// Save command history
 		if success {
-			models.CreateCommandHistory(user.ID, command, response, true)
+			models.CreateCommandHistory(user.ID, command, response, true, nil)
 		} else {
-			models.CreateCommandHistory(user.ID, command, err.Error(), false)
+			models.CreateCommandHistory(user.ID, command, err.Error(), false, nil)
 		}
 
 		// Log to audit trail
@@ -284,9 +285,9 @@ func sayMessage(api *Api) gin.HandlerFunc {
 
 		// Save command history
 		if success {
-			models.CreateCommandHistory(user.ID, command, response, true)
+			models.CreateCommandHistory(user.ID, command, response, true, nil)
 		} else {
-			models.CreateCommandHistory(user.ID, command, err.Error(), false)
+			models.CreateCommandHistory(user.ID, command, err.Error(), false, nil)
 		}
 
 		if err != nil {
@@ -311,8 +312,21 @@ func getCommandHistory(api *Api) gin.HandlerFunc {
 		}
 		user := userVal.(*models.User)
 
+		// Optional server ID filter
+		var serverID *uint
+		if serverIDStr := c.Query("server_id"); serverIDStr != "" {
+			id, err := strconv.ParseUint(serverIDStr, 10, 32)
+			if err != nil {
+				c.Set("error", "Invalid server ID")
+				c.Status(http.StatusBadRequest)
+				return
+			}
+			sid := uint(id)
+			serverID = &sid
+		}
+
 		// Get command history for this user (limit to last 50)
-		history, err := models.GetCommandHistoryByUser(user.ID, 50)
+		history, err := models.GetCommandHistoryByUser(user.ID, 50, serverID)
 		if err != nil {
 			c.Set("error", "Failed to retrieve command history")
 			c.Status(http.StatusInternalServerError)
@@ -348,9 +362,9 @@ func unbanPlayer(api *Api) gin.HandlerFunc {
 		success := err == nil
 
 		if success {
-			models.CreateCommandHistory(user.ID, command, response, true)
+			models.CreateCommandHistory(user.ID, command, response, true, nil)
 		} else {
-			models.CreateCommandHistory(user.ID, command, err.Error(), false)
+			models.CreateCommandHistory(user.ID, command, err.Error(), false, nil)
 		}
 
 		if err != nil {
@@ -386,9 +400,9 @@ func dumpUser(api *Api) gin.HandlerFunc {
 		success := err == nil
 
 		if success {
-			models.CreateCommandHistory(user.ID, command, response, true)
+			models.CreateCommandHistory(user.ID, command, response, true, nil)
 		} else {
-			models.CreateCommandHistory(user.ID, command, err.Error(), false)
+			models.CreateCommandHistory(user.ID, command, err.Error(), false, nil)
 		}
 
 		if err != nil {
@@ -424,9 +438,9 @@ func tellPlayer(api *Api) gin.HandlerFunc {
 		success := err == nil
 
 		if success {
-			models.CreateCommandHistory(user.ID, command, response, true)
+			models.CreateCommandHistory(user.ID, command, response, true, nil)
 		} else {
-			models.CreateCommandHistory(user.ID, command, err.Error(), false)
+			models.CreateCommandHistory(user.ID, command, err.Error(), false, nil)
 		}
 
 		if err != nil {
@@ -464,9 +478,9 @@ func changeMap(api *Api) gin.HandlerFunc {
 		success := err == nil
 
 		if success {
-			models.CreateCommandHistory(user.ID, command, response, true)
+			models.CreateCommandHistory(user.ID, command, response, true, nil)
 		} else {
-			models.CreateCommandHistory(user.ID, command, err.Error(), false)
+			models.CreateCommandHistory(user.ID, command, err.Error(), false, nil)
 		}
 
 		if err != nil {
@@ -495,9 +509,9 @@ func mapRotate(api *Api) gin.HandlerFunc {
 		success := err == nil
 
 		if success {
-			models.CreateCommandHistory(user.ID, command, response, true)
+			models.CreateCommandHistory(user.ID, command, response, true, nil)
 		} else {
-			models.CreateCommandHistory(user.ID, command, err.Error(), false)
+			models.CreateCommandHistory(user.ID, command, err.Error(), false, nil)
 		}
 
 		if err != nil {
@@ -526,9 +540,9 @@ func mapRestart(api *Api) gin.HandlerFunc {
 		success := err == nil
 
 		if success {
-			models.CreateCommandHistory(user.ID, command, response, true)
+			models.CreateCommandHistory(user.ID, command, response, true, nil)
 		} else {
-			models.CreateCommandHistory(user.ID, command, err.Error(), false)
+			models.CreateCommandHistory(user.ID, command, err.Error(), false, nil)
 		}
 
 		if err != nil {
@@ -557,9 +571,9 @@ func fastRestart(api *Api) gin.HandlerFunc {
 		success := err == nil
 
 		if success {
-			models.CreateCommandHistory(user.ID, command, response, true)
+			models.CreateCommandHistory(user.ID, command, response, true, nil)
 		} else {
-			models.CreateCommandHistory(user.ID, command, err.Error(), false)
+			models.CreateCommandHistory(user.ID, command, err.Error(), false, nil)
 		}
 
 		if err != nil {
@@ -595,9 +609,9 @@ func changeGametype(api *Api) gin.HandlerFunc {
 		success := err == nil
 
 		if success {
-			models.CreateCommandHistory(user.ID, command, response, true)
+			models.CreateCommandHistory(user.ID, command, response, true, nil)
 		} else {
-			models.CreateCommandHistory(user.ID, command, err.Error(), false)
+			models.CreateCommandHistory(user.ID, command, err.Error(), false, nil)
 		}
 
 		if err != nil {
@@ -635,9 +649,9 @@ func execConfig(api *Api) gin.HandlerFunc {
 		success := err == nil
 
 		if success {
-			models.CreateCommandHistory(user.ID, command, response, true)
+			models.CreateCommandHistory(user.ID, command, response, true, nil)
 		} else {
-			models.CreateCommandHistory(user.ID, command, err.Error(), false)
+			models.CreateCommandHistory(user.ID, command, err.Error(), false, nil)
 		}
 
 		if err != nil {
@@ -673,9 +687,9 @@ func writeConfig(api *Api) gin.HandlerFunc {
 		success := err == nil
 
 		if success {
-			models.CreateCommandHistory(user.ID, command, response, true)
+			models.CreateCommandHistory(user.ID, command, response, true, nil)
 		} else {
-			models.CreateCommandHistory(user.ID, command, err.Error(), false)
+			models.CreateCommandHistory(user.ID, command, err.Error(), false, nil)
 		}
 
 		if err != nil {
@@ -711,9 +725,9 @@ func setCvar(api *Api) gin.HandlerFunc {
 		success := err == nil
 
 		if success {
-			models.CreateCommandHistory(user.ID, command, response, true)
+			models.CreateCommandHistory(user.ID, command, response, true, nil)
 		} else {
-			models.CreateCommandHistory(user.ID, command, err.Error(), false)
+			models.CreateCommandHistory(user.ID, command, err.Error(), false, nil)
 		}
 
 		if err != nil {
@@ -775,7 +789,20 @@ func getServerStats(api *Api) gin.HandlerFunc {
 			}
 		}
 
-		stats, err := models.GetServerStatsRange(startTime, endTime)
+		// Optional server ID filter
+		var serverID *uint
+		if serverIDStr := c.Query("server_id"); serverIDStr != "" {
+			id, err := strconv.ParseUint(serverIDStr, 10, 32)
+			if err != nil {
+				c.Set("error", "Invalid server ID")
+				c.Status(http.StatusBadRequest)
+				return
+			}
+			sid := uint(id)
+			serverID = &sid
+		}
+
+		stats, err := models.GetServerStatsRange(startTime, endTime, serverID)
 		if err != nil {
 			c.Set("error", "Failed to retrieve server stats")
 			c.Status(http.StatusInternalServerError)

@@ -112,8 +112,34 @@ func (ch *CommandHandler) handleHelpCommand(ch2 *CommandHandler, playerName, pla
 		}
 
 		if canUse && (requirementType == "permission" || requirementType == "both") {
-			if !ch.hasRequiredPermissions(playerPermissions, `["all"]`) && !ch.hasRequiredPermissions(playerPermissions, cmd.Permissions) {
-				canUse = false
+			// Check if player has "all" permission (super admin)
+			hasAllPermission := false
+			for _, playerPerm := range playerPermissions {
+				if playerPerm == "all" {
+					hasAllPermission = true
+					break
+				}
+			}
+
+			// Check if player has all required permissions
+			if !hasAllPermission && len(cmd.Permissions) > 0 {
+				hasAllPerms := true
+				for _, reqPerm := range cmd.Permissions {
+					found := false
+					for _, playerPerm := range playerPermissions {
+						if playerPerm == reqPerm.Name {
+							found = true
+							break
+						}
+					}
+					if !found {
+						hasAllPerms = false
+						break
+					}
+				}
+				if !hasAllPerms {
+					canUse = false
+				}
 			}
 		}
 

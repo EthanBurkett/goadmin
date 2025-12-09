@@ -1,6 +1,9 @@
 package rest
 
 import (
+	"net/http"
+	"strconv"
+
 	"github.com/ethanburkett/goadmin/app/models"
 	"github.com/gin-gonic/gin"
 )
@@ -11,7 +14,35 @@ func RegisterPlayerRoutes(r *gin.Engine, api *Api) {
 	players.Use(RequirePermission("players.view"))
 	{
 		players.GET("", getPlayers(api))
+		players.GET("/ingame", getInGamePlayers(api))
 		players.GET("/:playerId", getPlayer(api))
+	}
+}
+
+func getInGamePlayers(api *Api) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Optional server ID filter
+		var serverID *uint
+		if serverIDStr := c.Query("server_id"); serverIDStr != "" {
+			id, err := strconv.ParseUint(serverIDStr, 10, 32)
+			if err != nil {
+				c.Set("error", "Invalid server ID")
+				c.Status(http.StatusBadRequest)
+				return
+			}
+			sid := uint(id)
+			serverID = &sid
+		}
+
+		players, err := models.GetAllInGamePlayers(serverID)
+		if err != nil {
+			c.Set("error", "Failed to retrieve in-game players")
+			c.Status(http.StatusInternalServerError)
+			return
+		}
+
+		c.Set("data", players)
+		c.Status(http.StatusOK)
 	}
 }
 

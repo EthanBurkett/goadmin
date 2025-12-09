@@ -61,6 +61,7 @@ func main() {
 	initializeViewerRole()
 	initializeDefaultGroups()
 	initializeDefaultCommands()
+	initializeDefaultServer(cfg)
 
 	rconClient := rcon.NewClient(cfg)
 	err = rconClient.Connect()
@@ -145,6 +146,12 @@ func initializeSuperAdminRole() {
 		{"users.delete", "Delete user accounts"},
 		{"reports.view", "View player reports"},
 		{"reports.action", "Take action on reports (ban, tempban, dismiss)"},
+		{"audit.view", "View audit logs"},
+		{"webhooks.manage", "Manage webhook configurations"},
+		{"migrations.manage", "Manage database migrations"},
+		{"groups.manage", "Manage in-game groups"},
+		{"commands.manage", "Manage custom commands"},
+		{"servers.manage", "Manage server instances"},
 	}
 
 	for _, perm := range permissions {
@@ -389,18 +396,31 @@ func initializeDefaultCommands() {
 		_, err := models.GetCustomCommand(cmd.name)
 		if err != nil {
 			// Command doesn't exist, create it
-			permissionsJSON, _ := json.Marshal(cmd.permissions)
+			// Convert permission names to IDs
+			var permissionIDs []uint
+			for _, permName := range cmd.permissions {
+				perm, err := models.GetPermissionByName(permName)
+				if err != nil {
+					// Permission doesn't exist, skip this command
+					logger.Warn("Permission not found for default command",
+						zap.String("command", cmd.name),
+						zap.String("permission", permName))
+					continue
+				}
+				permissionIDs = append(permissionIDs, perm.ID)
+			}
+
 			err := models.CreateCustomCommand(
 				cmd.name,
 				cmd.usage,
 				cmd.description,
 				cmd.rconCommand,
-				string(permissionsJSON),
 				"both",
 				cmd.minArgs,
 				cmd.maxArgs,
 				cmd.minPower,
 				cmd.isBuiltIn,
+				permissionIDs,
 			)
 			if err != nil {
 				logger.Warn("Failed to create default command", zap.String("command", cmd.name), zap.Error(err))
@@ -409,6 +429,37 @@ func initializeDefaultCommands() {
 			}
 		}
 	}
+}
+
+func initializeDefaultServer(cfg *config.Config) {
+	// Check if a default server already exists
+	_, err := models.GetDefaultServer()
+	if err == nil {
+		// Default server already exists
+		logger.Info("Default server already configured")
+		return
+	}
+
+	// Create server from config
+	server, err := models.CreateServer(
+		"Default Server",
+		cfg.Server.Host,
+		cfg.Server.RconPassword,
+		cfg.GamesMpPath,
+		"Auto-created from config file",
+		"",
+		cfg.Server.Port,
+		cfg.Server.Port, // Assuming RCON port is same as game port
+		0,               // Max players unknown
+		true,            // Set as default
+	)
+
+	if err != nil {
+		logger.Error("Failed to create default server", zap.Error(err))
+		return
+	}
+
+	logger.Info("Created default server", zap.String("name", server.Name), zap.Uint("id", server.ID))
 }
 
 func startGamesMpWatcher(cfg *config.Config, rconClient *rcon.Client) {
@@ -556,6 +607,92 @@ func getMigrations() []database.MigrationDefinition {
 					&models.Migration{},
 					&models.MigrationHistory{},
 				)
+			},
+		},
+		{
+			Version:     "005",
+			Name:        "add_permission_constraints",
+			Description: "Add foreign key constraints with CASCADE for user-role and role-permission relationships",
+			Up: func(db *gorm.DB) error {
+				// Re-migrate models to add constraints
+				// GORM will add the constraints if they don't exist
+				return db.AutoMigrate(
+					&models.User{},
+					&models.Role{},
+					&models.Permission{},
+				)
+			},
+			Down: func(db *gorm.DB) error {
+				// Cannot easily remove constraints without recreating tables
+				// This is a schema enhancement migration
+				return nil
+			},
+		},
+		{
+			Version:     "006",
+			Name:        "add_performance_indexes",
+			Description: "Add indexes to foreign key columns for improved query performance",
+			Up: func(db *gorm.DB) error {
+				// Re-migrate models to add indexes
+				return db.AutoMigrate(
+					&models.Report{},
+					&models.TempBan{},
+					&models.InGamePlayer{},
+				)
+			},
+			Down: func(db *gorm.DB) error {
+				// Cannot easily remove specific indexes without custom SQL
+				return nil
+			},
+		},
+		{
+			Version:     "007",
+			Name:        "normalize_command_permissions",
+			Description: "Convert command permissions from JSON to many-to-many relationship with permissions table",
+			Up: func(db *gorm.DB) error {
+				// First, create the junction table
+				if err := db.AutoMigrate(&models.CustomCommand{}); err != nil {
+					return err
+				}
+
+				// Migrate existing JSON permissions to the new structure
+				// This is handled by the new CustomCommand model structure
+				// Old "permissions" column (if it exists) will be ignored
+				// New commands will use the many-to-many relationship
+
+				return nil
+			},
+			Down: func(db *gorm.DB) error {
+				// Drop the junction table
+				return db.Migrator().DropTable("command_permissions")
+			},
+		},
+		{
+			Version:     "008",
+			Name:        "add_server_instances",
+			Description: "Add server instances table and link existing tables to servers for multi-server support",
+			Up: func(db *gorm.DB) error {
+				// Create servers table
+				if err := db.AutoMigrate(&models.Server{}); err != nil {
+					return err
+				}
+
+				// Update existing tables to add ServerID columns
+				if err := db.AutoMigrate(
+					&models.TempBan{},
+					&models.Report{},
+					&models.CommandHistory{},
+					&models.InGamePlayer{},
+					&models.ServerStats{},
+				); err != nil {
+					return err
+				}
+
+				return nil
+			},
+			Down: func(db *gorm.DB) error {
+				// Drop servers table (will set NULL on related records due to constraints)
+				return db.Migrator().DropTable(&models.Server{})
 			},
 		},
 	}

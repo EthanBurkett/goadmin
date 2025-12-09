@@ -9,18 +9,23 @@ import (
 	"github.com/ethanburkett/goadmin/app/logger"
 	"github.com/ethanburkett/goadmin/app/models"
 	"github.com/ethanburkett/goadmin/app/rcon"
+	"github.com/ethanburkett/goadmin/app/webhook"
 )
 
 type StatsCollector struct {
-	rcon   *rcon.Client
-	ticker *time.Ticker
-	done   chan bool
+	rcon       *rcon.Client
+	ticker     *time.Ticker
+	done       chan bool
+	lastOnline bool
+	dispatcher *webhook.Dispatcher
 }
 
 func NewStatsCollector(rconClient *rcon.Client) *StatsCollector {
 	return &StatsCollector{
-		rcon: rconClient,
-		done: make(chan bool),
+		rcon:       rconClient,
+		done:       make(chan bool),
+		lastOnline: false,
+		dispatcher: webhook.NewDispatcher(),
 	}
 }
 
@@ -52,19 +57,44 @@ func (sc *StatsCollector) Stop() {
 func (sc *StatsCollector) collectStats() {
 	logger.Debug("Collecting server stats...")
 
+	// Track server online status
+	serverOnline := true
+
 	// Collect server stats
 	if err := sc.collectServerStats(); err != nil {
 		logger.Error(fmt.Sprintf("Failed to collect server stats: %v", err))
+		serverOnline = false
 	}
 
-	// Collect system stats
-	if err := sc.collectSystemStats(); err != nil {
-		logger.Error(fmt.Sprintf("Failed to collect system stats: %v", err))
+	// Check for status change and dispatch webhook
+	if serverOnline != sc.lastOnline {
+		if serverOnline {
+			logger.Info("Server came online")
+			sc.dispatcher.Dispatch(models.WebhookEventServerOnline, map[string]interface{}{
+				"timestamp": time.Now().Format(time.RFC3339),
+				"message":   "Server is now online",
+			})
+		} else {
+			logger.Info("Server went offline")
+			sc.dispatcher.Dispatch(models.WebhookEventServerOffline, map[string]interface{}{
+				"timestamp": time.Now().Format(time.RFC3339),
+				"message":   "Server is now offline",
+			})
+		}
+		sc.lastOnline = serverOnline
 	}
 
-	// Collect player stats
-	if err := sc.collectPlayerStats(); err != nil {
-		logger.Error(fmt.Sprintf("Failed to collect player stats: %v", err))
+	// Only collect system and player stats if server is online
+	if serverOnline {
+		// Collect system stats
+		if err := sc.collectSystemStats(); err != nil {
+			logger.Error(fmt.Sprintf("Failed to collect system stats: %v", err))
+		}
+
+		// Collect player stats
+		if err := sc.collectPlayerStats(); err != nil {
+			logger.Error(fmt.Sprintf("Failed to collect player stats: %v", err))
+		}
 	}
 
 	logger.Debug("Stats collection completed")

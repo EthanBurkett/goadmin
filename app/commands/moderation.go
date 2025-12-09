@@ -48,7 +48,7 @@ func (ch *CommandHandler) handleReportCommand(ch2 *CommandHandler, playerName, p
 		return nil
 	}
 
-	report, err := models.CreateReport(playerName, playerGUID, reportedPlayerName, reportedGUID, reason)
+	report, err := models.CreateReport(playerName, playerGUID, reportedPlayerName, reportedGUID, reason, nil)
 	if err != nil {
 		ch.sendPlayerMessage(playerName, "Failed to submit report")
 		return err
@@ -166,7 +166,7 @@ func (ch *CommandHandler) handleTempBanCommand(ch2 *CommandHandler, playerName, 
 			bannedPlayerName, bannedGUID, banLoopResult.RecentBanCount, banLoopResult.TimeWindow))
 	}
 
-	tempBan, err := models.CreateTempBan(bannedPlayerName, bannedGUID, reason, duration, nil)
+	tempBan, err := models.CreateTempBan(bannedPlayerName, bannedGUID, reason, duration, nil, nil)
 	if err != nil {
 		ch.sendPlayerMessage(playerName, "Failed to create temp ban")
 		return err

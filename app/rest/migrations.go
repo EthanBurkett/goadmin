@@ -11,7 +11,7 @@ import (
 func RegisterMigrationRoutes(r *gin.Engine, api *Api) {
 	migrations := r.Group("/migrations")
 	migrations.Use(AuthMiddleware())
-	migrations.Use(RequirePermission("rbac.manage")) // Only super admins
+	migrations.Use(RequirePermission("migrations.manage")) // Only super admins
 	{
 		migrations.GET("", getMigrations(api))
 		migrations.GET("/status", getMigrationStatus(api))
