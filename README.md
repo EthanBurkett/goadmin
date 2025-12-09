@@ -99,76 +99,50 @@ A modern web-based administration panel for Call of Duty 4 (CoD4) game servers w
 
 ### Prerequisites
 
-- Go 1.21 or higher
+- Go 1.21+
 - Node.js 18+ and pnpm
 - CoD4 server with RCON enabled
 
-### Backend Setup
+### Setup
 
-1. Clone the repository:
+1. Clone and configure:
 
 ```bash
 git clone https://github.com/ethanburkett/GoAdmin.git
 cd GoAdmin
-```
-
-2. Configure the application:
-
-```bash
 cp config.example.json config.json
 ```
 
-Edit `config.json`:
+2. Edit `config.json`:
 
 ```json
 {
   "server": {
     "host": "localhost",
     "port": 28960,
-    "rcon_password": "your_rcon_password_here"
+    "rcon_password": "your_rcon_password"
   },
-  "games_mp_path": "...\\Call of Duty 4\\Mods\\your_mod\\games_mp.log",
+  "games_mp_path": "path/to/games_mp.log",
   "rest_port": 8080,
-  "environment": "development | production"
+  "environment": "development"
 }
 ```
 
-3. Install dependencies:
+3. Start development servers:
 
 ```bash
 pnpm run deps
-```
-
-3b. Then run:
-
-```bash
 pnpm dev
 ```
 
-The dashboard will be available at `http://localhost:5173`
-
-## Configuration
-
-### RCON Setup
-
-Ensure your CoD4 server has RCON enabled in `server.cfg`:
-
-```
-set rcon_password "your_secure_password"
-```
-
-### Log File Watching
-
-GoAdmin monitors the `games_mp.log` file for real-time events. Ensure the path in `config.json` points to your server's log file.
+Dashboard: `http://localhost:5173`
 
 ### First-Time Setup
 
-1. Start both backend and frontend
-2. Navigate to `http://localhost:5173`
-3. Register your account
-4. Head to `http://localhost:8080/auth/iamgod` in a separate tab, or if you changed the rest port, use that port. This will allow the first user to claim Owner privileges for the dashboard.
-5. The first user should use `!iamgod` in-game to claim Owner privileges
-6. Approve other users through the RBAC management panel
+1. Register account at `http://localhost:5173`
+2. Claim Owner via `http://localhost:8080/auth/iamgod`
+3. Use `!iamgod` in-game for in-game admin
+4. Approve users via RBAC panel
 
 ## Usage
 
