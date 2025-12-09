@@ -48,6 +48,8 @@ func (p *AutoMessagesPlugin) Init(ctx *plugins.PluginContext) error {
 
 // Start starts the plugin
 func (p *AutoMessagesPlugin) Start() error {
+	// Recreate stopChan in case the plugin was stopped and started again
+	p.stopChan = make(chan bool)
 	p.ticker = time.NewTicker(p.interval)
 	messageIndex := 0
 

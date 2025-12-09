@@ -133,6 +133,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   // Build nav href with current server ID
   const buildHref = (basePath: string) => {
+    // Global pages that don't need server ID
+    const globalPages = ["/plugins", "/servers"];
+    if (globalPages.includes(basePath)) {
+      return basePath;
+    }
     if (!currentServer) return basePath;
     return `/${currentServer.id}${basePath}`;
   };

@@ -111,11 +111,22 @@ export function ServerProvider({
     if (server) {
       setCurrentServer(server);
       // Navigate to the same page but with the new server ID
-      const currentPath = window.location.pathname
-        .split("/")
-        .slice(2)
-        .join("/");
-      navigate(`/${serverId}${currentPath ? "/" + currentPath : ""}`);
+      const currentPath = window.location.pathname;
+
+      // For global pages (/plugins, /servers), navigate to the selected server's dashboard
+      const globalPages = ["/plugins", "/servers"];
+      const isGlobalPage = globalPages.some(
+        (page) => currentPath === page || currentPath.startsWith(page + "/")
+      );
+
+      if (isGlobalPage) {
+        navigate(`/${serverId}`, { replace: true });
+        return;
+      }
+
+      // For server-specific pages, navigate to the same page with new server ID
+      const pathParts = currentPath.split("/").slice(2).join("/");
+      navigate(`/${serverId}${pathParts ? "/" + pathParts : ""}`);
     }
   };
 

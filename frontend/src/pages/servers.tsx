@@ -58,15 +58,19 @@ import {
   PowerOff,
   Shield,
   LogOut,
+  Database,
+  Plug,
 } from "lucide-react";
 import { ServerSelector } from "@/components/ServerSelector";
 import { useAuthContext } from "@/hooks/useAuthContext";
 import { ServerProvider } from "@/providers/ServerProvider";
+import { useNavigate } from "react-router-dom";
 
 function Servers() {
   const { data: servers, isLoading } = useServers();
   const createServerMutation = useCreateServer();
   const { user, logout } = useAuthContext();
+  const navigate = useNavigate();
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -190,7 +194,29 @@ function Servers() {
                 </div>
                 <ServerSelector />
               </SidebarHeader>
-              <SidebarContent>{/* No navigation items */}</SidebarContent>
+              <SidebarContent>
+                <div className="p-4 space-y-1">
+                  <div className="text-xs font-semibold text-muted-foreground mb-2 px-3">
+                    GLOBAL
+                  </div>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start bg-accent text-accent-foreground"
+                    onClick={() => navigate("/servers")}
+                  >
+                    <Database className="mr-2 h-4 w-4" />
+                    Servers
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start"
+                    onClick={() => navigate("/plugins")}
+                  >
+                    <Plug className="mr-2 h-4 w-4" />
+                    Plugins
+                  </Button>
+                </div>
+              </SidebarContent>
               <SidebarFooter className="border-t border-border p-4">
                 <div className="space-y-2">
                   <div className="text-sm text-muted-foreground">

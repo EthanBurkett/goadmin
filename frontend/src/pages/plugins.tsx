@@ -39,11 +39,14 @@ import {
   Loader2,
   Shield,
   LogOut,
+  Database,
+  Plug,
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ServerSelector } from "@/components/ServerSelector";
 import { useAuthContext } from "@/hooks/useAuthContext";
 import { ServerProvider } from "@/providers/ServerProvider";
+import { useNavigate } from "react-router-dom";
 
 function Plugins() {
   const { data: plugins = [], isLoading, error } = usePlugins();
@@ -52,6 +55,7 @@ function Plugins() {
   const reloadPlugin = useReloadPlugin();
   const [selectedPluginId, setSelectedPluginId] = useState<string | null>(null);
   const { user, logout } = useAuthContext();
+  const navigate = useNavigate();
 
   const handleStart = (pluginId: string) => {
     setSelectedPluginId(pluginId);
@@ -117,10 +121,36 @@ function Plugins() {
     <SidebarProvider>
       <div className="flex h-screen w-full overflow-hidden">
         <Sidebar>
-          <SidebarHeader>
+          <SidebarHeader className="border-b border-border p-4 space-y-3">
+            <div className="flex items-center space-x-2">
+              <Shield className="h-6 w-6 text-primary" />
+              <span className="text-lg font-bold text-foreground">GoAdmin</span>
+            </div>
             <ServerSelector />
           </SidebarHeader>
-          <SidebarContent>{/* Navigation items if needed */}</SidebarContent>
+          <SidebarContent>
+            <div className="p-4 space-y-1">
+              <div className="text-xs font-semibold text-muted-foreground mb-2 px-3">
+                GLOBAL
+              </div>
+              <Button
+                variant="ghost"
+                className="w-full justify-start"
+                onClick={() => navigate("/servers")}
+              >
+                <Database className="mr-2 h-4 w-4" />
+                Servers
+              </Button>
+              <Button
+                variant="ghost"
+                className="w-full justify-start bg-accent text-accent-foreground"
+                onClick={() => navigate("/plugins")}
+              >
+                <Plug className="mr-2 h-4 w-4" />
+                Plugins
+              </Button>
+            </div>
+          </SidebarContent>
           <SidebarFooter>
             <div className="space-y-2 p-2">
               <div className="px-3 py-2 rounded-lg bg-muted/50">
