@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import {
   usePlugins,
   useStartPlugin,
@@ -23,21 +24,34 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarProvider,
+} from "@/components/ui/sidebar";
+import {
   Play,
   Square,
   RefreshCw,
   AlertCircle,
   CheckCircle,
   Loader2,
+  Shield,
+  LogOut,
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { ServerSelector } from "@/components/ServerSelector";
+import { useAuthContext } from "@/hooks/useAuthContext";
+import { ServerProvider } from "@/providers/ServerProvider";
 
-export default function PluginsPage() {
+function Plugins() {
   const { data: plugins = [], isLoading, error } = usePlugins();
   const startPlugin = useStartPlugin();
   const stopPlugin = useStopPlugin();
   const reloadPlugin = useReloadPlugin();
   const [selectedPluginId, setSelectedPluginId] = useState<string | null>(null);
+  const { user, logout } = useAuthContext();
 
   const handleStart = (pluginId: string) => {
     setSelectedPluginId(pluginId);
@@ -52,6 +66,10 @@ export default function PluginsPage() {
   const handleReload = (pluginId: string) => {
     setSelectedPluginId(pluginId);
     reloadPlugin.mutate(pluginId);
+  };
+
+  const handleLogout = () => {
+    logout();
   };
 
   const getStateBadge = (state: string) => {
@@ -95,159 +113,200 @@ export default function PluginsPage() {
     return date.toLocaleString();
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <Alert variant="destructive">
-        <AlertCircle className="h-4 w-4" />
-        <AlertDescription>
-          Error loading plugins: {(error as Error).message}
-        </AlertDescription>
-      </Alert>
-    );
-  }
-
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Plugin Management</h1>
-        <p className="text-muted-foreground">
-          Manage and monitor installed plugins
-        </p>
+    <SidebarProvider>
+      <div className="flex h-screen w-full overflow-hidden">
+        <Sidebar>
+          <SidebarHeader>
+            <ServerSelector />
+          </SidebarHeader>
+          <SidebarContent>{/* Navigation items if needed */}</SidebarContent>
+          <SidebarFooter>
+            <div className="space-y-2 p-2">
+              <div className="px-3 py-2 rounded-lg bg-muted/50">
+                <div className="flex items-center gap-2 mb-1">
+                  <Shield className="h-3 w-3" />
+                  <span className="text-xs font-medium">Logged in as</span>
+                </div>
+                <span className="text-sm font-semibold block">
+                  {user?.username}
+                </span>
+              </div>
+              <Button
+                variant="outline"
+                className="w-full justify-start"
+                onClick={handleLogout}
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Sign Out
+              </Button>
+            </div>
+          </SidebarFooter>
+        </Sidebar>
+        <main className="flex-1 overflow-auto">
+          <div className="p-8">
+            <div className="space-y-6">
+              <div>
+                <h1 className="text-4xl font-bold text-foreground mb-2">
+                  Plugin Management
+                </h1>
+                <p className="text-muted-foreground">
+                  Manage and monitor installed plugins
+                </p>
+              </div>
+
+              {isLoading ? (
+                <div className="flex items-center justify-center h-64">
+                  <Loader2 className="w-8 h-8 animate-spin" />
+                </div>
+              ) : error ? (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Error loading plugins: {(error as Error).message}
+                  </AlertDescription>
+                </Alert>
+              ) : plugins.length === 0 ? (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>No Plugins Found</CardTitle>
+                    <CardDescription>
+                      No plugins are currently installed. Create plugins in the
+                      plugins directory and rebuild the application.
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              ) : (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Installed Plugins ({plugins.length})</CardTitle>
+                    <CardDescription>
+                      View and control the lifecycle of installed plugins
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Name</TableHead>
+                          <TableHead>Version</TableHead>
+                          <TableHead>Type</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Loaded At</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {plugins.map((plugin) => (
+                          <TableRow key={plugin.id}>
+                            <TableCell>
+                              <div className="flex flex-col">
+                                <span className="font-medium">
+                                  {plugin.name}
+                                </span>
+                                {plugin.error && (
+                                  <span className="text-sm text-destructive">
+                                    Error: {plugin.error}
+                                  </span>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <code className="text-xs bg-muted px-2 py-1 rounded">
+                                v{plugin.version}
+                              </code>
+                            </TableCell>
+                            <TableCell>
+                              <span className="text-sm">Plugin</span>
+                            </TableCell>
+                            <TableCell>{getStateBadge(plugin.state)}</TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {formatDate(plugin.loadedAt)}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                {plugin.state === "stopped" ||
+                                plugin.state === "loaded" ? (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleStart(plugin.id)}
+                                    disabled={
+                                      startPlugin.isPending &&
+                                      selectedPluginId === plugin.id
+                                    }
+                                  >
+                                    {startPlugin.isPending &&
+                                    selectedPluginId === plugin.id ? (
+                                      <Loader2 className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                      <Play className="w-4 h-4" />
+                                    )}
+                                    <span className="ml-1">Start</span>
+                                  </Button>
+                                ) : null}
+
+                                {plugin.state === "started" ? (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleReload(plugin.id)}
+                                      disabled={
+                                        reloadPlugin.isPending &&
+                                        selectedPluginId === plugin.id
+                                      }
+                                    >
+                                      {reloadPlugin.isPending &&
+                                      selectedPluginId === plugin.id ? (
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                      ) : (
+                                        <RefreshCw className="w-4 h-4" />
+                                      )}
+                                      <span className="ml-1">Reload</span>
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleStop(plugin.id)}
+                                      disabled={
+                                        stopPlugin.isPending &&
+                                        selectedPluginId === plugin.id
+                                      }
+                                    >
+                                      {stopPlugin.isPending &&
+                                      selectedPluginId === plugin.id ? (
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                      ) : (
+                                        <Square className="w-4 h-4" />
+                                      )}
+                                      <span className="ml-1">Stop</span>
+                                    </Button>
+                                  </>
+                                ) : null}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </div>
+        </main>
       </div>
+    </SidebarProvider>
+  );
+}
 
-      {plugins.length === 0 ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>No Plugins Found</CardTitle>
-            <CardDescription>
-              No plugins are currently installed. Place plugin .so files in the
-              plugins directory and restart the server.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle>Installed Plugins ({plugins.length})</CardTitle>
-            <CardDescription>
-              View and control the lifecycle of installed plugins
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Version</TableHead>
-                  <TableHead>Author</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Loaded At</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {plugins.map((plugin) => (
-                  <TableRow key={plugin.id}>
-                    <TableCell>
-                      <div className="flex flex-col">
-                        <span className="font-medium">{plugin.name}</span>
-                        {plugin.error && (
-                          <span className="text-sm text-destructive">
-                            Error: {plugin.error}
-                          </span>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <code className="text-xs bg-muted px-2 py-1 rounded">
-                        v{plugin.version}
-                      </code>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-sm">Plugin</span>
-                    </TableCell>
-                    <TableCell>{getStateBadge(plugin.state)}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {formatDate(plugin.loadedAt)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        {plugin.state === "stopped" ||
-                        plugin.state === "loaded" ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleStart(plugin.id)}
-                            disabled={
-                              startPlugin.isPending &&
-                              selectedPluginId === plugin.id
-                            }
-                          >
-                            {startPlugin.isPending &&
-                            selectedPluginId === plugin.id ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <Play className="w-4 h-4" />
-                            )}
-                            <span className="ml-1">Start</span>
-                          </Button>
-                        ) : null}
-
-                        {plugin.state === "started" ? (
-                          <>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleReload(plugin.id)}
-                              disabled={
-                                reloadPlugin.isPending &&
-                                selectedPluginId === plugin.id
-                              }
-                            >
-                              {reloadPlugin.isPending &&
-                              selectedPluginId === plugin.id ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : (
-                                <RefreshCw className="w-4 h-4" />
-                              )}
-                              <span className="ml-1">Reload</span>
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleStop(plugin.id)}
-                              disabled={
-                                stopPlugin.isPending &&
-                                selectedPluginId === plugin.id
-                              }
-                            >
-                              {stopPlugin.isPending &&
-                              selectedPluginId === plugin.id ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : (
-                                <Square className="w-4 h-4" />
-                              )}
-                              <span className="ml-1">Stop</span>
-                            </Button>
-                          </>
-                        ) : null}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
-    </div>
+export default function PluginsPage() {
+  return (
+    <ProtectedRoute>
+      <ServerProvider disableRedirect>
+        <Plugins />
+      </ServerProvider>
+    </ProtectedRoute>
   );
 }
