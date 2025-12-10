@@ -106,14 +106,15 @@ func (ch *CommandHandler) ProcessChatCommand(playerName, playerGUID, message str
 
 	// Check if it's a plugin command first
 	if ch.pluginCommandAPI != nil {
-		if err := ch.pluginCommandAPI.ProcessPluginCommand(playerName, playerGUID, commandName, args); err != nil {
-			// Command was handled by plugin but errored
-			return err
-		}
-		// Check if command was handled by a plugin
+		// Check if command is registered with a plugin
 		pluginCmds := ch.pluginCommandAPI.GetRegisteredCommands()
 		if _, isPluginCmd := pluginCmds[commandName]; isPluginCmd {
-			return nil // Command was handled by plugin
+			// Process the plugin command
+			if err := ch.pluginCommandAPI.ProcessPluginCommand(playerName, playerGUID, commandName, args); err != nil {
+				// Command execution failed
+				return err
+			}
+			return nil // Command was handled by plugin successfully
 		}
 	}
 

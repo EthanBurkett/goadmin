@@ -106,6 +106,19 @@ func main() {
 		}
 	}()
 
+	// Initialize RCON API for plugins BEFORE starting watcher
+	rconAPI := plugins.NewRCONAPI(rconClient)
+	plugins.GlobalPluginManager.SetRCONClient(rconAPI)
+
+	// Load and start plugins
+	logger.Info("Loading plugins...")
+	if err := plugins.GlobalPluginManager.LoadAll(); err != nil {
+		logger.Error("Failed to load plugins", zap.Error(err))
+	}
+	if err := plugins.GlobalPluginManager.StartAll(); err != nil {
+		logger.Error("Failed to start plugins", zap.Error(err))
+	}
+
 	go startGamesMpWatcher(cfg, rconClient)
 
 	// Start stats collector
@@ -121,19 +134,6 @@ func main() {
 	auditArchiver := jobs.NewAuditLogArchiver(retentionDays)
 	auditArchiver.Start()
 	defer auditArchiver.Stop()
-
-	// Initialize RCON API for plugins
-	rconAPI := plugins.NewRCONAPI(rconClient)
-	plugins.GlobalPluginManager.SetRCONClient(rconAPI)
-
-	// Load and start plugins
-	logger.Info("Loading plugins...")
-	if err := plugins.GlobalPluginManager.LoadAll(); err != nil {
-		logger.Error("Failed to load plugins", zap.Error(err))
-	}
-	if err := plugins.GlobalPluginManager.StartAll(); err != nil {
-		logger.Error("Failed to start plugins", zap.Error(err))
-	}
 
 	go startTempBanChecker()
 
