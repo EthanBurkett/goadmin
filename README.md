@@ -97,7 +97,17 @@
 - **Custom Commands** - Register in-game commands with Go callbacks
 - **Full RCON Access** - Execute server commands from plugins
 - **Hot Reload** - Start, stop, reload without restart
-- **Auto-Import Script** - Automatic plugin discovery and activation
+
+### 🔌 Plugin System
+
+- **Event-Driven Architecture** - Subscribe to player connect/disconnect events
+- **Custom Commands** - Register in-game commands with Go callbacks
+- **Full RCON Access** - Execute server commands from plugins
+- **Hot Reload** - Update plugin code without server restart
+- **Dependency Management** - Automatic dependency resolution and load ordering
+- **Resource Monitoring** - Track memory, goroutines, and resource usage
+- **Semantic Versioning** - API compatibility validation with version constraints
+- **Auto-Import Script** - Automatic plugin discovery and registration
 
 </td>
 <td width="50%">
@@ -109,6 +119,31 @@
 - **Dark Mode** - Built-in theme support
 - **Responsive Design** - Works on desktop, tablet, mobile
 - **Real-time Updates** - TanStack Query for seamless data sync
+- **Multi-Server Dashboard** - Switch between servers with dropdown selector
+
+</td>
+</tr>
+<tr>
+<td width="50%">
+
+### 🔄 Database Management
+
+- **Migration System** - Version-controlled schema migrations with rollback
+- **Automatic Backups** - Database backup with compression and retention
+- **Integrity Validation** - Automated constraint and FK relationship checks
+- **Transaction Safety** - ACID guarantees for critical operations
+- **Multi-Server Data** - Server-scoped data isolation
+
+</td>
+<td width="50%">
+
+### 🔔 Webhook System
+
+- **Event Notifications** - Player bans, reports, and custom events
+- **Retry Logic** - Exponential backoff for failed deliveries
+- **HMAC Signatures** - SHA256 signing for webhook security
+- **Delivery Logs** - Complete audit trail of webhook dispatches
+- **Test Endpoint** - Validate webhooks before activation
 
 </td>
 </tr>
@@ -138,7 +173,165 @@
 
 ---
 
-## 🛠️ Tech Stack
+## 🔌 Advanced Plugin System
+
+GoAdmin features an enterprise-grade plugin system with hot-reload, dependency management, and resource monitoring.
+
+<details>
+<summary><b>🎯 Core Features</b></summary>
+
+### Hot Reload
+
+- Update plugin code without server restart
+- Safe stop → reload → start cycle with automatic fallback
+- Web UI button for instant plugin reloads
+- Zero downtime for plugin updates
+
+### Dependency Management
+
+- **Automatic Dependency Resolution** - Plugins declare dependencies, system resolves them
+- **Topological Sorting** - Kahn's algorithm ensures correct load order
+- **Circular Dependency Detection** - Prevents infinite dependency loops
+- **Dependency Tree Visualization** - Web UI shows plugin relationships
+
+### Resource Monitoring
+
+- **Real-time Metrics** - Track memory (MB), goroutine count, violations
+- **30-Second Updates** - Live metrics refresh in web dashboard
+- **Progress Bars** - Visual representation of resource usage
+- **Configurable Limits** - Set max memory, CPU, goroutines, timeouts per plugin
+- **Violation Tracking** - Log and display resource limit violations
+
+### Semantic Versioning
+
+- **API Compatibility** - Plugins specify min/max API versions
+- **Version Validation** - Automatic compatibility checks on load
+- **Version Comparison** - SemVer parsing (major.minor.patch)
+- **Future-Proof** - Prevents incompatible plugins from loading
+
+</details>
+
+<details>
+<summary><b>📦 Creating a Plugin</b></summary>
+
+```go
+package myplugin
+
+import (
+    "github.com/ethanburkett/goadmin/app/plugins"
+)
+
+type MyPlugin struct {
+    ctx *plugins.PluginContext
+}
+
+func (p *MyPlugin) Metadata() plugins.PluginMetadata {
+    return plugins.PluginMetadata{
+        ID:          "my-plugin",
+        Name:        "My Awesome Plugin",
+        Version:     "1.0.0",
+        Author:      "Your Name",
+        Description: "Does amazing things",
+        Dependencies: []string{"example-plugin"}, // Optional
+        MinAPIVersion: "1.0.0", // Optional
+        MaxAPIVersion: "2.0.0", // Optional
+        ResourceLimits: &plugins.ResourceLimits{
+            MaxMemoryMB:    100,
+            MaxCPUPercent:  50,
+            MaxGoroutines:  50,
+            Timeout:        30 * time.Second,
+        },
+    }
+}
+
+func (p *MyPlugin) Init(ctx *plugins.PluginContext) error {
+    p.ctx = ctx
+
+    // Subscribe to events
+    ctx.EventBus.Subscribe("player.connect", func(data map[string]interface{}) {
+        playerName := data["playerName"].(string)
+        ctx.RCONAPI.Say(fmt.Sprintf("Welcome %s!", playerName))
+    })
+
+    // Register custom command
+    ctx.CommandAPI.RegisterCommand(&plugins.Command{
+        Name:        "hello",
+        Description: "Greet the player",
+        Handler: func(args plugins.CommandArgs) error {
+            return args.Reply(fmt.Sprintf("Hello %s!", args.Player.Name))
+        },
+    })
+
+    return nil
+}
+
+func (p *MyPlugin) Start() error {
+    // Start background tasks
+    return nil
+}
+
+func (p *MyPlugin) Stop() error {
+    // Cleanup
+    return nil
+}
+
+func (p *MyPlugin) Reload() error {
+    // Reload configuration
+    return nil
+}
+
+func init() {
+    plugins.Registry.Register(&MyPlugin{})
+}
+```
+
+</details>
+
+<details>
+<summary><b>🚀 Plugin Management</b></summary>
+
+### Auto-Discovery Script
+
+```powershell
+# Automatically finds and imports all plugins
+.\scripts\build_plugins.ps1
+```
+
+### Web Dashboard
+
+- **Start/Stop/Reload** - Control plugins via UI
+- **Resource Metrics** - View memory, goroutines, violations
+- **Dependency Trees** - Visualize plugin relationships
+- **Status Indicators** - Running, Stopped, Error states
+- **Expandable Details** - Click rows for detailed metrics
+
+### REST API
+
+```bash
+GET    /plugins                    # List all plugins
+GET    /plugins/:id                # Get plugin status
+POST   /plugins/:id/start          # Start plugin
+POST   /plugins/:id/stop           # Stop plugin
+POST   /plugins/:id/hot-reload     # Hot reload plugin
+GET    /plugins/:id/metrics        # Get resource metrics
+GET    /plugins/metrics/all        # Get all plugin metrics
+GET    /plugins/:id/dependencies   # Get dependency tree
+```
+
+</details>
+
+<details>
+<summary><b>📖 Learn More</b></summary>
+
+- **[Complete Plugin Documentation](PLUGINS.md)** - Full API reference and examples
+- **[Example Plugins](plugins/examples/)** - Working examples to get started
+- **Advanced Example** - Demonstrates all plugin features including dependencies, versioning, and resource limits
+
+</details>
+
+---
+
+## 🎮 Built-in Commands
 
 <div align="center">
 
@@ -347,6 +540,115 @@ go build -o goadmin app/main.go
 ```
 
 📖 **Full Documentation:** [PLUGINS.md](PLUGINS.md)
+
+---
+
+## 💾 Database Management
+
+GoAdmin includes enterprise-grade database tools for migrations, backups, and integrity validation.
+
+<details>
+<summary><b>🔄 Migration System</b></summary>
+
+### Version-Controlled Migrations
+
+- **Automatic Tracking** - Migration version and history tables
+- **Transaction Safety** - All migrations run in ACID-compliant transactions
+- **Rollback Support** - Revert to previous schema versions
+- **Web UI** - Manage migrations from dashboard
+- **REST API** - Programmatic migration control
+
+### 8 Built-in Migrations
+
+1. **Initial Schema** - Core tables (users, sessions, roles, permissions, etc.)
+2. **Audit Logs** - Administrative action tracking
+3. **Webhooks** - Event notification system
+4. **Migration Tracking** - Self-hosting migration infrastructure
+5. **Permission Constraints** - CASCADE foreign keys for RBAC
+6. **Performance Indexes** - Optimized queries on FKs
+7. **Command Permissions** - Normalized many-to-many relationships
+8. **Server Instances** - Multi-server data isolation
+
+```bash
+# View migration status
+curl http://localhost:8080/migrations/status
+
+# Apply pending migrations
+curl -X POST http://localhost:8080/migrations/apply/all
+```
+
+</details>
+
+<details>
+<summary><b>💿 Backup & Restore</b></summary>
+
+### Automated Backups
+
+```powershell
+# Create compressed backup
+.\scripts\backup_db.ps1
+
+# Automatic cleanup (keeps last 10 backups)
+# Includes: goadmin.db, goadmin.db-wal, goadmin.db-shm
+# Format: backup_YYYYMMDD_HHMMSS.zip
+```
+
+### Restore from Backup
+
+```powershell
+# Restore database from backup
+.\scripts\restore_db.ps1 -BackupFile "backup_20250109_120000.zip"
+
+# Force overwrite existing database
+.\scripts\restore_db.ps1 -BackupFile "backup.zip" -Force
+```
+
+</details>
+
+<details>
+<summary><b>🔍 Integrity Validation</b></summary>
+
+### Database Health Check
+
+```powershell
+# Validate all constraints and relationships
+.\scripts\validate_db.ps1
+
+# JSON output for automation
+.\scripts\validate_db.ps1 | ConvertFrom-Json
+```
+
+**Validation Checks:**
+
+- ✅ Orphaned sessions (users deleted but sessions remain)
+- ✅ Orphaned role assignments
+- ✅ Orphaned permission assignments
+- ✅ Orphaned reports (reviewer user deleted)
+- ✅ Orphaned temp bans (banned by user deleted)
+- ✅ Orphaned command history
+- ✅ Orphaned in-game players (group deleted)
+- ✅ Missing indexes on foreign keys
+- ✅ Constraint violations with severity levels
+
+**Output:**
+
+```json
+{
+  "errors": 0,
+  "warnings": 2,
+  "info": 5,
+  "results": [
+    {
+      "check": "Orphaned Sessions",
+      "severity": "error",
+      "count": 0,
+      "message": "All sessions have valid user references"
+    }
+  ]
+}
+```
+
+</details>
 
 ---
 
