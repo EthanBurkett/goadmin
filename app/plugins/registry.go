@@ -65,11 +65,15 @@ func (r *PluginRegistry) Get(id string) (Plugin, bool) {
 
 // Manager manages plugin lifecycle
 type Manager struct {
-	plugins      map[string]*LoadedPlugin
-	pluginStates map[string]PluginState
-	mu           sync.RWMutex
-	rconAPI      RCONAPI
-	commandAPI   *CommandAPIImpl
+	plugins             map[string]*LoadedPlugin
+	pluginStates        map[string]PluginState
+	mu                  sync.RWMutex
+	rconAPI             RCONAPI
+	commandAPI          *CommandAPIImpl
+	resourceMonitor     *ResourceMonitor
+	hotReloader         *HotReloader
+	dependencyValidator *DependencyValidator
+	apiVersion          string
 }
 
 // LoadedPlugin represents a loaded plugin instance
@@ -85,10 +89,18 @@ type LoadedPlugin struct {
 
 // NewManager creates a new plugin manager
 func NewManager() *Manager {
-	return &Manager{
+	m := &Manager{
 		plugins:      make(map[string]*LoadedPlugin),
 		pluginStates: make(map[string]PluginState),
+		apiVersion:   "1.0.0", // Current GoAdmin API version
 	}
+
+	// Initialize sub-managers
+	m.resourceMonitor = NewResourceMonitor(30 * time.Second) // Check every 30 seconds
+	m.hotReloader = NewHotReloader(m)
+	m.dependencyValidator = NewDependencyValidator(Registry, m)
+
+	return m
 }
 
 // SetRCONClient sets the RCON client for the manager
@@ -106,11 +118,30 @@ func (m *Manager) GetCommandAPI() *CommandAPIImpl {
 	return m.commandAPI
 }
 
-// LoadAll loads all registered plugins from the registry
-func (m *Manager) LoadAll() error {
+// GetResourceMonitor returns the resource monitor instance
+func (m *Manager) GetResourceMonitor() *ResourceMonitor {
+	return m.resourceMonitor
+}
+
+// GetHotReloader returns the hot reloader instance
+func (m *Manager) GetHotReloader() *HotReloader {
+	return m.hotReloader
+}
+
+// GetDependencyValidator returns the dependency validator instance
+func (m *Manager) GetDependencyValidator() *DependencyValidator {
+	return m.dependencyValidator
+}
+
+// SetAPIVersion sets the current GoAdmin API version
+func (m *Manager) SetAPIVersion(version string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	m.apiVersion = version
+}
 
+// LoadAll loads all registered plugins from the registry
+func (m *Manager) LoadAll() error {
 	registeredPlugins := Registry.GetAll()
 	if len(registeredPlugins) == 0 {
 		logger.Info("No plugins registered")
@@ -119,9 +150,36 @@ func (m *Manager) LoadAll() error {
 
 	logger.Info(fmt.Sprintf("Found %d registered plugin(s)", len(registeredPlugins)))
 
-	for id, plugin := range registeredPlugins {
-		if _, exists := m.plugins[id]; exists {
+	// Start resource monitoring
+	m.resourceMonitor.Start()
+
+	// Get plugin IDs for dependency sorting
+	pluginIDs := make([]string, 0, len(registeredPlugins))
+	for id := range registeredPlugins {
+		pluginIDs = append(pluginIDs, id)
+	}
+
+	// Calculate load order based on dependencies
+	loadOrder, err := m.dependencyValidator.GetLoadOrder(pluginIDs)
+	if err != nil {
+		logger.Error("Failed to calculate plugin load order", zap.Error(err))
+		// Fall back to arbitrary order
+		loadOrder = pluginIDs
+	}
+
+	// Load plugins in dependency order
+	for _, id := range loadOrder {
+		m.mu.RLock()
+		_, exists := m.plugins[id]
+		m.mu.RUnlock()
+
+		if exists {
 			continue // Already loaded
+		}
+
+		plugin, exists := registeredPlugins[id]
+		if !exists {
+			continue
 		}
 
 		metadata := plugin.Metadata()
@@ -133,7 +191,11 @@ func (m *Manager) LoadAll() error {
 		}
 	}
 
-	logger.Info(fmt.Sprintf("Successfully loaded %d plugin(s)", len(m.plugins)))
+	m.mu.RLock()
+	loadedCount := len(m.plugins)
+	m.mu.RUnlock()
+
+	logger.Info(fmt.Sprintf("Successfully loaded %d plugin(s)", loadedCount))
 	return nil
 }
 
@@ -142,29 +204,48 @@ func (m *Manager) loadPlugin(id string, pluginInstance Plugin) error {
 	// Get metadata
 	metadata := pluginInstance.Metadata()
 
-	// Check if plugin ID is already loaded
-	if _, exists := m.plugins[metadata.ID]; exists {
+	// Check if plugin ID is already loaded (with lock)
+	m.mu.RLock()
+	_, exists := m.plugins[metadata.ID]
+	m.mu.RUnlock()
+
+	if exists {
 		return fmt.Errorf("plugin with ID %s is already loaded", metadata.ID)
 	}
 
+	// Validate API version compatibility
+	if err := ValidateAPICompatibility(m.apiVersion, metadata); err != nil {
+		return fmt.Errorf("API compatibility check failed: %w", err)
+	}
+
+	// Validate dependencies
+	if err := m.dependencyValidator.ValidateDependencies(metadata); err != nil {
+		return fmt.Errorf("dependency validation failed: %w", err)
+	}
+
 	// Create plugin context
+	m.mu.RLock()
+	rconAPI := m.rconAPI
+	commandAPI := m.commandAPI
+	m.mu.RUnlock()
+
 	ctx, cancel := context.WithCancel(context.Background())
 	pluginCtx := &PluginContext{
 		PluginID:   metadata.ID,
 		Context:    ctx,
 		CancelFunc: cancel,
 		EventBus:   GlobalEventBus,
-		RCONAPI:    m.rconAPI,
-		CommandAPI: m.commandAPI,
+		RCONAPI:    rconAPI,
+		CommandAPI: commandAPI,
 	}
 
-	// Initialize plugin
+	// Initialize plugin (outside of lock - user code!)
 	if err := pluginInstance.Init(pluginCtx); err != nil {
 		cancel()
 		return fmt.Errorf("plugin initialization failed: %w", err)
 	}
 
-	// Store loaded plugin
+	// Store loaded plugin (with lock)
 	loaded := &LoadedPlugin{
 		Plugin:     pluginInstance,
 		Metadata:   metadata,
@@ -174,8 +255,13 @@ func (m *Manager) loadPlugin(id string, pluginInstance Plugin) error {
 		cancelFunc: cancel,
 	}
 
+	m.mu.Lock()
 	m.plugins[metadata.ID] = loaded
 	m.pluginStates[metadata.ID] = PluginStateLoaded
+	m.mu.Unlock()
+
+	// Register for resource monitoring
+	m.resourceMonitor.RegisterPlugin(metadata.ID)
 
 	logger.Info("Plugin loaded", zap.String("id", metadata.ID), zap.String("version", metadata.Version))
 	return nil
@@ -207,6 +293,13 @@ func (m *Manager) startPlugin(id string) error {
 	loaded, exists := m.plugins[id]
 	if !exists {
 		return fmt.Errorf("plugin not found")
+	}
+
+	// Check resource limits before starting
+	if loaded.Metadata.ResourceLimits != nil {
+		if err := m.resourceMonitor.CheckLimits(id, loaded.Metadata.ResourceLimits); err != nil {
+			logger.Warn("Plugin resource limit check warning", zap.String("id", id), zap.Error(err))
+		}
 	}
 
 	if err := loaded.Plugin.Start(); err != nil {
@@ -260,6 +353,9 @@ func (m *Manager) stopPlugin(id string) error {
 
 	loaded.State = PluginStateStopped
 	m.pluginStates[id] = PluginStateStopped
+
+	// Unregister from resource monitoring
+	m.resourceMonitor.UnregisterPlugin(id)
 
 	logger.Info("Plugin stopped", zap.String("id", id))
 	return nil

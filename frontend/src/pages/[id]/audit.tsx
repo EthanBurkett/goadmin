@@ -1,5 +1,13 @@
-import { useState } from "react";
-import { useAuditLogs, type AuditLogsFilters } from "@/hooks/useAudit";
+import { useState, useCallback } from "react";
+import {
+  useAuditLogs,
+  useAuditStats,
+  useArchiveAuditLogs,
+  usePurgeArchivedLogs,
+  type AuditLogsFilters,
+  type AuditLog,
+} from "@/hooks/useAudit";
+import { useAuditStream, useAuditStreamStats } from "@/hooks/useAuditStream";
 import {
   Card,
   CardContent,
@@ -29,6 +37,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDistanceToNow } from "@/lib/time";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { Archive, Trash2, BarChart3, Radio } from "lucide-react";
 
 const ACTION_TYPES = [
   "all",
@@ -56,6 +65,8 @@ export default function AuditPage() {
     limit: 50,
     offset: 0,
   });
+  const [realtimeLogs, setRealtimeLogs] = useState<AuditLog[]>([]);
+  const [enableRealtime, setEnableRealtime] = useState(true);
 
   const [_searchUsername, setSearchUsername] = useState("");
   const [selectedAction, setSelectedAction] = useState("all");
@@ -63,8 +74,47 @@ export default function AuditPage() {
   const [selectedSuccess, setSelectedSuccess] = useState("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [showStats, setShowStats] = useState(false);
 
-  const { data, isLoading, error } = useAuditLogs(filters);
+  const { data, isLoading, error, refetch } = useAuditLogs(filters);
+  const { data: stats } = useAuditStats();
+  const { stats: streamStats } = useAuditStreamStats();
+  const archiveMutation = useArchiveAuditLogs();
+  const purgeMutation = usePurgeArchivedLogs();
+
+  // Real-time audit log streaming
+  const handleNewLog = useCallback((log: AuditLog) => {
+    setRealtimeLogs((prev) => [log, ...prev].slice(0, 100)); // Keep last 100 realtime logs
+  }, []);
+
+  const { isConnected: isStreamConnected, error: streamError } = useAuditStream(
+    enableRealtime ? handleNewLog : undefined
+  );
+
+  // Combine realtime logs with fetched logs
+  const combinedLogs = enableRealtime
+    ? [...realtimeLogs, ...(data?.logs || [])]
+    : data?.logs || [];
+
+  const handleArchive = async () => {
+    if (
+      confirm(
+        "Archive audit logs older than 90 days? They will be soft-deleted but can be recovered if needed."
+      )
+    ) {
+      await archiveMutation.mutateAsync(90);
+      alert(`Archived ${archiveMutation.data?.archived || 0} audit logs`);
+    }
+  };
+
+  const handlePurge = async () => {
+    if (
+      confirm("Permanently delete archived audit logs? This cannot be undone!")
+    ) {
+      await purgeMutation.mutateAsync();
+      alert(`Purged ${purgeMutation.data?.purged || 0} archived logs`);
+    }
+  };
 
   const applyFilters = () => {
     const newFilters: AuditLogsFilters = {
@@ -160,14 +210,146 @@ export default function AuditPage() {
   return (
     <ProtectedRoute requiredPermission="audit.view">
       <div className="space-y-6">
-        <div>
-          <h1 className="text-4xl font-bold text-foreground mb-2">
-            Audit Logs
-          </h1>
-          <p className="text-muted-foreground">
-            View and filter all system actions and events
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-4xl font-bold text-foreground mb-2">
+              Audit Logs
+            </h1>
+            <p className="text-muted-foreground">
+              View and filter all system actions and events
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            {isStreamConnected && (
+              <Badge variant="outline" className="gap-2">
+                <Radio className="h-3 w-3 animate-pulse text-green-500" />
+                Live Stream Active
+              </Badge>
+            )}
+            {streamError && (
+              <Badge variant="destructive" className="gap-2">
+                <Radio className="h-3 w-3" />
+                Stream Error
+              </Badge>
+            )}
+            {streamStats && (
+              <Badge variant="secondary">
+                {streamStats.connected_clients} viewer
+                {streamStats.connected_clients !== 1 ? "s" : ""}
+              </Badge>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setEnableRealtime(!enableRealtime)}
+            >
+              {enableRealtime ? "Pause" : "Resume"} Live Updates
+            </Button>
+          </div>
         </div>
+
+        {/* Statistics Card */}
+        {stats && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5" />
+                    Audit Statistics
+                  </CardTitle>
+                  <CardDescription>
+                    Overview of audit log data and storage
+                  </CardDescription>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowStats(!showStats)}
+                >
+                  {showStats ? "Hide" : "Show"} Details
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                  <div className="text-sm text-muted-foreground">
+                    Total Logs
+                  </div>
+                  <div className="text-2xl font-bold">
+                    {stats.total.toLocaleString()}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm text-muted-foreground">Archived</div>
+                  <div className="text-2xl font-bold text-orange-500">
+                    {stats.archived.toLocaleString()}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm text-muted-foreground">
+                    Success Rate
+                  </div>
+                  <div className="text-2xl font-bold text-green-500">
+                    {stats.success_rate.toFixed(1)}%
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm text-muted-foreground">
+                    Active Logs
+                  </div>
+                  <div className="text-2xl font-bold">
+                    {(stats.total - stats.archived).toLocaleString()}
+                  </div>
+                </div>
+              </div>
+
+              {showStats && (
+                <div className="mt-6 pt-6 border-t space-y-4">
+                  <div>
+                    <h4 className="font-semibold mb-2">Management Actions</h4>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={handleArchive}
+                        disabled={archiveMutation.isPending}
+                      >
+                        <Archive className="h-4 w-4 mr-2" />
+                        Archive Old Logs (90+ days)
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        onClick={handlePurge}
+                        disabled={purgeMutation.isPending}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Purge Archived Logs
+                      </Button>
+                    </div>
+                  </div>
+
+                  {stats.by_action && stats.by_action.length > 0 && (
+                    <div>
+                      <h4 className="font-semibold mb-2">
+                        Logs by Action Type
+                      </h4>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                        {stats.by_action.slice(0, 8).map((item) => (
+                          <div key={item.Action} className="text-sm">
+                            <span className="text-muted-foreground">
+                              {item.Action}:
+                            </span>{" "}
+                            <span className="font-semibold">{item.Count}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader>
@@ -285,10 +467,19 @@ export default function AuditPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Audit Log Entries</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              Audit Log Entries
+              {enableRealtime && realtimeLogs.length > 0 && (
+                <Badge variant="default" className="ml-2">
+                  +{realtimeLogs.length} new
+                </Badge>
+              )}
+            </CardTitle>
             <CardDescription>
               {data?.total !== undefined
-                ? `Showing ${data.logs?.length || 0} of ${data.total} entries`
+                ? `Showing ${combinedLogs.length || 0} entries (${
+                    realtimeLogs.length
+                  } live + ${data.logs?.length || 0} from server)`
                 : "Loading..."}
             </CardDescription>
           </CardHeader>
@@ -323,7 +514,7 @@ export default function AuditPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {!data?.logs || data.logs.length === 0 ? (
+                      {combinedLogs.length === 0 ? (
                         <TableRow>
                           <TableCell
                             colSpan={8}
@@ -333,8 +524,15 @@ export default function AuditPage() {
                           </TableCell>
                         </TableRow>
                       ) : (
-                        data.logs.map((log) => (
-                          <TableRow key={log.id}>
+                        combinedLogs.map((log, index) => (
+                          <TableRow
+                            key={`${log.id || "realtime"}-${index}`}
+                            className={
+                              index < realtimeLogs.length && enableRealtime
+                                ? "bg-blue-50 dark:bg-blue-950/20"
+                                : ""
+                            }
+                          >
                             <TableCell className="whitespace-nowrap">
                               <div className="text-sm">
                                 {new Date(log.createdAt).toLocaleString()}

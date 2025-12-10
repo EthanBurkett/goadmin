@@ -46,7 +46,7 @@ func (ah *AuditHelper) LogAction(
 		}
 	}
 
-	_, err := models.CreateAuditLog(
+	log, err := models.CreateAuditLog(
 		database.DB,
 		userID,
 		username,
@@ -61,6 +61,11 @@ func (ah *AuditHelper) LogAction(
 		metadataJSON,
 		result,
 	)
+
+	// Broadcast to WebSocket clients for real-time streaming
+	if err == nil && log != nil && GlobalAuditStreamManager != nil {
+		GlobalAuditStreamManager.BroadcastAuditLog(log)
+	}
 
 	return err
 }

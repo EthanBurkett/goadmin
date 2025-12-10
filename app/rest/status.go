@@ -1,6 +1,8 @@
 package rest
 
-import "github.com/gin-gonic/gin"
+import (
+	"github.com/gin-gonic/gin"
+)
 
 func RegisterStatusRoute(r *gin.Engine, api *Api) {
 	status := r.Group("/status")
@@ -8,12 +10,15 @@ func RegisterStatusRoute(r *gin.Engine, api *Api) {
 	status.Use(RequirePermission("status.view"))
 	{
 		status.GET("", func(c *gin.Context) {
+			// Fetch from RCON directly without caching
+			// The RCON status call is lightweight and provides real-time data
 			status, err := api.rcon.Status()
 			if err != nil {
 				c.Set("error", err.Error())
 				c.Status(500)
 				return
 			}
+
 			c.Set("data", status)
 			c.Status(200)
 		})

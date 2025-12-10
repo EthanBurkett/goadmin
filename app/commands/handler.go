@@ -282,14 +282,12 @@ func (ch *CommandHandler) ProcessChatCommand(playerName, playerGUID, message str
 
 	logger.Info(fmt.Sprintf("Executing custom command '%s' for player %s: %s", commandName, playerName, rconCmd))
 
-	response, err := ch.rcon.SendCommand(rconCmd)
+	_, err = ch.rcon.SendCommand(rconCmd)
 	if err != nil {
 		logger.Error(fmt.Sprintf("Failed to execute command '%s': %v", commandName, err))
 		ch.sendPlayerMessage(playerName, "Command failed to execute")
 		return err
 	}
-
-	logger.Debug(fmt.Sprintf("Command response: %s", response))
 
 	return nil
 }

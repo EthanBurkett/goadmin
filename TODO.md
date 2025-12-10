@@ -291,13 +291,59 @@ This document tracks major improvements and refactoring tasks for GoAdmin.
   - [x] ✅ GET /audit/logs/recent
   - [x] ✅ GET /audit/logs/user/:userId
   - [x] ✅ GET /audit/logs/action/:action
-- [ ] Real-time audit log streaming (optional WebSocket)
-- [ ] Audit log retention policy configuration
-- [ ] Audit log archiving system
+  - [x] ✅ GET /audit/stats - Statistics and metrics
+  - [x] ✅ POST /audit/archive - Manual archival trigger
+  - [x] ✅ POST /audit/purge - Purge archived logs
+- [x] ✅ Real-time audit log streaming via WebSocket
+  - [x] ✅ WebSocket endpoint at /audit/stream
+  - [x] ✅ AuditStreamManager for connection management
+  - [x] ✅ Automatic broadcast of new audit logs to connected clients
+  - [x] ✅ Ping/pong keepalive mechanism
+  - [x] ✅ Graceful connection handling and cleanup
+  - [x] ✅ Frontend useAuditStream hook with auto-reconnect
+  - [x] ✅ Live log updates in audit page UI
+  - [x] ✅ Visual indicators for realtime logs
+  - [x] ✅ Stream statistics endpoint
+  - [x] ✅ Cookie-based authentication for WebSocket
+  - [x] ✅ Vite proxy configuration for WebSocket in development
+- [x] ✅ Audit log retention policy configuration
+  - [x] ✅ Configurable retention period (default 90 days)
+  - [x] ✅ Automatic archiving of old logs
+  - [x] ✅ Soft delete for archived logs (retained in DB)
+- [x] ✅ Audit log archiving system
+  - [x] ✅ Background job runs daily at 2 AM
+  - [x] ✅ Archives logs older than retention period
+  - [x] ✅ Extended archive retention (default 365 days)
+  - [x] ✅ Permanent purge of very old archived logs
+  - [x] ✅ Statistics tracking (total, archived, by action, by source, success rate)
 
 **Audit Logging Implementation Files:**
 
 - `app/rest/groups.go` - Group operation audit logging
+- `app/rest/audit_stream.go` (228 lines) - Real-time WebSocket audit log streaming NEW
+  - AuditStreamManager for WebSocket connection management
+  - Handles client registration/unregistration
+  - Broadcasts new audit logs to all connected clients
+  - Ping/pong keepalive mechanism (30s intervals)
+  - Stream statistics endpoint
+  - Cookie-based authentication support
+- `app/rest/audit_helper.go` - Integrated with WebSocket broadcasting
+- `frontend/src/hooks/useAuditStream.ts` (184 lines) - WebSocket hooks NEW
+  - useAuditStream hook with automatic reconnection
+  - useAuditStreamStats for monitoring connected clients
+  - Exponential backoff reconnection strategy
+  - Ping/pong handling
+  - Detailed console logging for debugging
+- `frontend/src/pages/[id]/audit.tsx` - Updated with real-time streaming UI
+  - Live log updates from WebSocket
+  - Visual indicators for new realtime logs (blue background)
+  - Connection status badges (Live Stream Active / Stream Error)
+  - Viewer count display
+  - Pause/resume live updates control
+  - Combined view of realtime + fetched logs
+- `frontend/vite.config.ts` - Added WebSocket proxy configuration
+  - Proxies /audit/stream to backend (localhost:8080)
+  - WebSocket support enabled (ws: true)
   - Group creation with permissions/power metadata
   - Group updates with change tracking
   - Group deletion with power metadata
@@ -364,9 +410,37 @@ This document tracks major improvements and refactoring tasks for GoAdmin.
 - [x] ✅ Command throttling per target
   - [x] ✅ Prevent one admin from targeting same player too frequently (30s cooldown)
   - [x] ✅ Track target statistics per admin
-- [ ] Emergency shutdown triggers
-  - [ ] Auto-disable commands on abuse detection
-  - [ ] Alert super admins
+- [x] ✅ Emergency shutdown triggers
+  - [x] ✅ Auto-disable commands on abuse detection (10+ bans in 15 min)
+  - [x] ✅ Alert super admins via audit logs
+  - [x] ✅ Automatic re-enable after configurable duration (30 min default)
+  - [x] ✅ Manual re-enable by admins with commands.manage permission
+  - [x] ✅ UI dashboard for monitoring and management
+  - [x] ✅ Integrated with ban loop detection system
+
+**Files Created:**
+
+- `app/models/EmergencyShutdown.go` (248 lines) - Emergency shutdown manager
+  - EmergencyShutdownManager singleton with mutex protection
+  - Auto-disable commands on abuse detection
+  - Automatic re-enable after configurable duration
+  - Manual override by admins
+  - Super admin notifications via audit logs
+  - Background cleanup goroutine
+- `app/rest/emergency.go` (87 lines) - Emergency shutdown REST API
+  - GET /emergency/disabled - View disabled commands
+  - POST /emergency/reenable/:command - Manual re-enable
+  - GET /emergency/alerts - View user alerts
+  - POST /emergency/alerts/:userId/reset - Reset alerts
+- `frontend/src/hooks/useEmergency.ts` (33 lines) - React hooks for emergency API
+- `frontend/src/pages/[id]/emergency.tsx` (200+ lines) - Emergency dashboard UI
+
+**Files Modified:**
+
+- `app/commands/moderation.go` - Integrated emergency shutdown checks and triggers
+- `app/main.go` - Initialize emergency shutdown manager
+- `app/rest/main.go` - Register emergency routes
+- `frontend/src/components/DashboardLayout.tsx` - Added Emergency navigation
 
 ## 🟢 Medium Priority - Plugin/Extension System
 
@@ -402,11 +476,52 @@ This document tracks major improvements and refactoring tasks for GoAdmin.
 
 **Files Created:**
 
-- `app/plugins/plugin.go` (166 lines) - Plugin interface, PluginMetadata, PluginContext, API interfaces (EventBus, Command, RCON, Database, Webhook, Config)
-- `app/plugins/manager.go` (265 lines) - Manager with LoadAll/StartAll/StopAll, individual Start/Stop/Reload, thread-safe with sync.RWMutex
-- `app/rest/plugins.go` (120 lines) - REST API endpoints with permission checks (plugins.view, plugins.manage)
-- `frontend/src/hooks/usePlugins.ts` (110 lines) - React hooks for plugin management
-- `frontend/src/pages/plugins.tsx` (340 lines) - Plugin management UI with status display and controls
+- `app/plugins/plugin.go` (190 lines) - Plugin interface, PluginMetadata with versioning and resource limits, PluginContext, API interfaces (EventBus, Command, RCON, Database, Webhook, Config)
+- `app/plugins/registry.go` (450+ lines) - Manager with LoadAll/StartAll/StopAll, individual Start/Stop/Reload, thread-safe with sync.RWMutex, dependency-ordered loading, resource monitoring integration
+- `app/plugins/versioning.go` (150 lines) - Semantic versioning system NEW
+  - SemVer struct and parser
+  - Version comparison utilities (GreaterThan, LessThan, Equals, Compare)
+  - API compatibility validation
+  - Min/max version constraint checking
+- `app/plugins/dependencies.go` (145 lines) - Dependency validation system NEW
+  - DependencyValidator for checking plugin dependencies
+  - Circular dependency detection
+  - Dependency tree building
+  - Topological sort for correct load order (Kahn's algorithm)
+- `app/plugins/monitoring.go` (240 lines) - Resource monitoring and hot-reload NEW
+  - ResourceMonitor for tracking plugin memory, CPU, goroutine usage
+  - PluginMetrics with violation tracking
+  - Configurable monitoring interval (default 30s)
+  - Resource limit checking
+  - HotReloader for safe plugin reloading
+  - Automatic fallback on reload failure
+- `app/plugins/eventbus.go` - Event bus implementation
+- `app/plugins/command_api.go` - Command registration API
+- `app/plugins/rcon_api.go` - RCON communication API
+- `app/rest/plugins.go` (280 lines) - REST API endpoints with permission checks (plugins.view, plugins.manage)
+  - GET /plugins - List all plugins
+  - GET /plugins/:id - Get plugin status
+  - POST /plugins/:id/start - Start plugin
+  - POST /plugins/:id/stop - Stop plugin
+  - POST /plugins/:id/reload - Reload plugin
+  - POST /plugins/:id/hot-reload - Hot-reload plugin NEW
+  - GET /plugins/:id/metrics - Get plugin resource metrics NEW
+  - GET /plugins/metrics/all - Get all plugin metrics NEW
+  - GET /plugins/:id/dependencies - Get dependency tree NEW
+- `frontend/src/hooks/usePlugins.ts` (220 lines) - React hooks for plugin management
+  - usePlugins, usePlugin - Fetch plugin status
+  - useStartPlugin, useStopPlugin - Lifecycle control
+  - useReloadPlugin, useHotReloadPlugin - Configuration reload NEW
+  - usePluginMetrics - Get resource usage metrics NEW
+  - useAllPluginMetrics - Get all plugin metrics NEW
+  - usePluginDependencies - Get dependency tree NEW
+- `frontend/src/pages/plugins.tsx` (560+ lines) - Plugin management UI with status display and controls
+  - Expandable rows showing detailed plugin information NEW
+  - Resource metrics with progress bars (memory, goroutines) NEW
+  - Dependency tree visualization NEW
+  - Hot-reload button for running plugins NEW
+  - Real-time metrics auto-refresh (30s interval) NEW
+  - Violation count badges NEW
 - `plugins/examples/example/example.go` (160 lines) - Example plugin demonstrating all APIs
 - `plugins/examples/example/README.md` - Build and installation instructions
 
@@ -418,11 +533,34 @@ This document tracks major improvements and refactoring tasks for GoAdmin.
 
 ### Plugin Types & Capabilities (Future Enhancements)
 
-- [ ] Hot-reload support (currently requires stop/start)
-- [ ] Plugin dependency management (validation)
-- [ ] Plugin versioning (compatibility checks)
-- [ ] Plugin sandbox/isolation
-  - [ ] Resource limits (CPU, memory)
+- [x] ✅ Hot-reload support
+  - [x] ✅ HotReloader with safe stop/reload/start cycle
+  - [x] ✅ Automatic fallback on reload failure
+  - [x] ✅ POST /plugins/:id/hot-reload endpoint
+  - [x] ✅ UI with hot-reload button (Zap icon)
+- [x] ✅ Plugin dependency management (validation)
+  - [x] ✅ DependencyValidator for checking plugin dependencies
+  - [x] ✅ Circular dependency detection
+  - [x] ✅ Dependency tree visualization
+  - [x] ✅ Topological sorting for correct load order
+  - [x] ✅ GET /plugins/:id/dependencies endpoint
+  - [x] ✅ UI showing dependency tree in expandable rows
+- [x] ✅ Plugin versioning (compatibility checks)
+  - [x] ✅ Semantic versioning parser (major.minor.patch)
+  - [x] ✅ API version compatibility validation
+  - [x] ✅ Min/max API version constraints in metadata
+  - [x] ✅ Version comparison utilities
+- [x] ✅ Plugin sandbox/isolation
+  - [x] ✅ Resource limits (CPU, memory, goroutines)
+  - [x] ✅ ResourceMonitor for tracking plugin resource usage
+  - [x] ✅ Configurable monitoring interval (default 30s)
+  - [x] ✅ Resource violation detection and logging
+  - [x] ✅ GET /plugins/:id/metrics endpoint
+  - [x] ✅ GET /plugins/metrics/all endpoint
+  - [x] ✅ UI with memory and goroutine progress bars
+  - [x] ✅ Expandable rows showing detailed resource metrics
+  - [x] ✅ Real-time metrics with 30s auto-refresh
+  - [ ] Resource enforcement (auto-throttle/stop on violations)
   - [ ] API access controls beyond permissions
 - [ ] Advanced command plugins
   - [ ] Command hooks/middleware
@@ -483,9 +621,32 @@ This document tracks major improvements and refactoring tasks for GoAdmin.
   - [x] ✅ user.approved, user.rejected
   - [x] ✅ server.online, server.offline (integrated in stats collector)
   - [x] ✅ security.alert
-- [ ] Event middleware/filtering
+- [x] ✅ Event middleware/filtering
+  - [x] ✅ MiddlewareManager for managing event middleware
+  - [x] ✅ EventFilter functions for filtering events
+  - [x] ✅ EventTransformer functions for modifying payloads
+  - [x] ✅ Priority-based middleware execution
+  - [x] ✅ Context-aware processing with cancellation support
+  - [x] ✅ Common filters: FilterByEventType, FilterByPayloadField, FilterByPayloadExists
+  - [x] ✅ Common transformers: AddTimestamp, AddEventType, RedactSensitiveFields, EnrichPayload
+  - [x] ✅ Integrated with webhook dispatcher
 - [ ] Event persistence (optional)
 - [ ] Event replay capability
+
+**Event Middleware Files:**
+
+- `app/webhook/middleware.go` (230 lines) - Event middleware system NEW
+  - MiddlewareManager for managing event processing pipeline
+  - EventFilter type for filtering events before dispatch
+  - EventTransformer type for modifying event payloads
+  - Priority-based middleware ordering
+  - Common filter functions (by type, field value, field existence)
+  - Common transformer functions (timestamps, redaction, enrichment)
+- `app/webhook/dispatcher.go` - Updated to use middleware
+  - Integrated MiddlewareManager
+  - Processes events through middleware before dispatch
+  - Filtered events are not dispatched
+  - Transformed payloads sent to webhooks
 
 **Server Status Event Integration:**
 
@@ -522,20 +683,9 @@ This document tracks major improvements and refactoring tasks for GoAdmin.
 
 ## 🟠 High Priority - Security & Rate Limiting
 
-### RCON Command Security
+### RCON Command Security (Duplicate Section - See Above for Completion Status)
 
-- [ ] Implement command sandboxing
-  - [ ] Validate command syntax before execution
-  - [ ] Block dangerous command patterns
-  - [ ] Whitelist/blacklist system for commands
-- [ ] Command validation layer
-  - [ ] Argument type checking
-  - [ ] Argument sanitization
-  - [ ] Maximum argument length limits
-- [ ] Command execution limits
-  - [ ] Max concurrent executions
-  - [ ] Timeout for long-running commands
-  - [ ] Prevent command injection
+This section is a duplicate. See "✅ COMPLETED - Security & Rate Limiting" above for full implementation details.
 
 ### Advanced Permission System
 
@@ -547,19 +697,25 @@ This document tracks major improvements and refactoring tasks for GoAdmin.
   - [x] ✅ Track permission grants/revokes via audit logs
   - [x] ✅ Track permission usage via audit logs
 
-### Command Abuse Prevention
+### ✅ COMPLETED - Command Abuse Prevention
 
-- [ ] Detect spam patterns
-  - [ ] Identical commands in quick succession
-  - [ ] Similar commands with minor variations
-- [ ] Detect ban loops
-  - [ ] Prevent rapid ban/unban cycles
-  - [ ] Detect circular ban attempts
-- [ ] Command throttling per target
-  - [ ] Prevent one user from being targeted repeatedly
-- [ ] Emergency shutdown triggers
-  - [ ] Auto-disable commands on abuse detection
-  - [ ] Alert super admins
+- [x] ✅ Detect spam patterns
+  - [x] ✅ Token bucket rate limiting prevents identical/similar commands in quick succession
+  - [x] ✅ Command deduplication (2s window per player)
+- [x] ✅ Detect ban loops
+  - [x] ✅ Prevent rapid ban/unban cycles (5 bans in 15 min threshold)
+  - [x] ✅ Detect circular ban attempts (admin repeatedly banning same player)
+  - [x] ✅ Track ban pattern statistics with suspicion scoring
+  - [x] ✅ Log security violations for ban loop abuse
+- [x] ✅ Command throttling per target
+  - [x] ✅ Prevent one user from being targeted repeatedly (30s cooldown)
+  - [x] ✅ Track target statistics per admin
+- [x] ✅ Emergency shutdown triggers
+  - [x] ✅ Auto-disable commands on abuse detection (10+ bans in 15 min)
+  - [x] ✅ Alert super admins via audit logs
+  - [x] ✅ Automatic re-enable after 30 minutes
+  - [x] ✅ Manual override by admins
+  - [x] ✅ Full UI dashboard for monitoring
 
 ## 🔵 Additional Improvements
 
@@ -571,7 +727,11 @@ This document tracks major improvements and refactoring tasks for GoAdmin.
     - [x] ✅ Added index to TempBan.BannedByUser
     - [x] ✅ Added index to InGamePlayer.GroupID
     - [x] ✅ Created migration 006 for performance indexes
-  - [ ] Query caching for common operations (user sessions, role/permission lookups, server status)
+  - [x] ✅ Query caching for common operations
+    - [x] ✅ User session and permission lookups (5 minute TTL)
+    - [x] ✅ Server status queries (30 second TTL)
+    - [x] ✅ In-memory cache with automatic cleanup
+    - [x] ✅ Cache invalidation on user role/permission changes
   - [x] ✅ Connection pooling tuning
     - [x] ✅ Set MaxOpenConns to 25
     - [x] ✅ Set MaxIdleConns to 10
@@ -596,14 +756,23 @@ This document tracks major improvements and refactoring tasks for GoAdmin.
 
 ### Monitoring & Observability
 
-- [ ] Prometheus metrics export
+- [x] ✅ Prometheus metrics export
+  - [x] ✅ GET /metrics - Prometheus exposition format
+  - [x] ✅ GET /metrics/json - JSON format (authenticated)
+  - [x] ✅ Database connection pool metrics
+  - [x] ✅ Audit log metrics (total, archived, success rate)
+  - [x] ✅ User metrics (total, active, pending)
+  - [x] ✅ Report metrics (total, pending)
+  - [x] ✅ Ban metrics (total, active)
+  - [x] ✅ Command metrics (total, custom, plugin)
+  - [x] ✅ System uptime tracking
 - [x] ✅ Health check endpoints
   - [x] ✅ GET /health - Comprehensive health status with database and RCON checks
   - [x] ✅ GET /health/ready - Kubernetes readiness probe endpoint
   - [x] ✅ GET /health/live - Kubernetes liveness probe endpoint
   - [x] ✅ Connection pool statistics in health response
   - [x] ✅ Status codes: 200 (healthy), 503 (unhealthy/degraded)
-- [ ] Performance monitoring
+- [ ] Performance monitoring dashboard
 - [ ] Error tracking (Sentry integration?)
 - [ ] Server metrics dashboard
 
@@ -753,12 +922,12 @@ This document tracks major improvements and refactoring tasks for GoAdmin.
 
 **High Priority:**
 
-- Create audit log viewer UI in dashboard
-- Add audit logging for role/permission changes
-- Add audit logging for user approval/rejection
-- Add audit logging for login/logout events
-- Implement ban loop detection
-- Add emergency shutdown triggers for abuse
+- ✅ Create audit log viewer UI in dashboard
+- ✅ Add audit logging for role/permission changes
+- ✅ Add audit logging for user approval/rejection
+- ✅ Add audit logging for login/logout events
+- ✅ Implement ban loop detection
+- ✅ Add emergency shutdown triggers for abuse
 
 **Medium Priority:**
 

@@ -18,6 +18,13 @@ func RegisterAuditRoutes(r *gin.Engine, api *Api) {
 		audit.GET("/logs/recent", getRecentAuditLogs(api))
 		audit.GET("/logs/user/:userId", getAuditLogsByUser(api))
 		audit.GET("/logs/action/:action", getAuditLogsByAction(api))
+		audit.GET("/stats", getAuditStats(api))
+		audit.POST("/archive", archiveOldAuditLogs(api))
+		audit.POST("/purge", purgeArchivedAuditLogs(api))
+
+		// Real-time audit log streaming via WebSocket
+		audit.GET("/stream", handleAuditStream(api))
+		audit.GET("/stream/stats", getAuditStreamStats(api))
 	}
 }
 
@@ -185,6 +192,60 @@ func getAuditLogsByAction(api *Api) gin.HandlerFunc {
 
 		c.Set("data", gin.H{
 			"logs": logs,
+		})
+		c.Status(http.StatusOK)
+	}
+}
+
+func getAuditStats(api *Api) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		stats, err := models.GetAuditLogStats(api.DB)
+		if err != nil {
+			c.Set("error", "Failed to fetch audit log statistics")
+			c.Status(http.StatusInternalServerError)
+			return
+		}
+
+		c.Set("data", stats)
+		c.Status(http.StatusOK)
+	}
+}
+
+func archiveOldAuditLogs(api *Api) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Get retention days from query parameter or use default
+		retentionDaysStr := c.DefaultQuery("retention_days", "90")
+		retentionDays, err := strconv.Atoi(retentionDaysStr)
+		if err != nil || retentionDays <= 0 {
+			retentionDays = 90
+		}
+
+		archived, err := models.ArchiveOldAuditLogs(api.DB, retentionDays)
+		if err != nil {
+			c.Set("error", "Failed to archive audit logs")
+			c.Status(http.StatusInternalServerError)
+			return
+		}
+
+		c.Set("data", gin.H{
+			"archived":       archived,
+			"retention_days": retentionDays,
+		})
+		c.Status(http.StatusOK)
+	}
+}
+
+func purgeArchivedAuditLogs(api *Api) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		purged, err := models.PurgeArchivedAuditLogs(api.DB)
+		if err != nil {
+			c.Set("error", "Failed to purge archived audit logs")
+			c.Status(http.StatusInternalServerError)
+			return
+		}
+
+		c.Set("data", gin.H{
+			"purged": purged,
 		})
 		c.Status(http.StatusOK)
 	}

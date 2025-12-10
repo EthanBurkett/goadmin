@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 
 export interface AuditLog {
@@ -110,5 +110,55 @@ export const useAuditLogsByAction = (action: string, limit = 100) => {
     },
     enabled: !!action,
     staleTime: 30 * 1000,
+  });
+};
+
+export interface AuditStats {
+  total: number;
+  archived: number;
+  by_action: Array<{ Action: string; Count: number }>;
+  by_source: Array<{ Source: string; Count: number }>;
+  success_rate: number;
+  oldest_log: string;
+  newest_log: string;
+}
+
+export const useAuditStats = () => {
+  return useQuery<AuditStats>({
+    queryKey: ["audit", "stats"],
+    queryFn: async () => {
+      const response = await api.get<AuditStats>("/audit/stats");
+      return response;
+    },
+    staleTime: 60 * 1000, // 1 minute
+  });
+};
+
+export const useArchiveAuditLogs = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (retentionDays: number = 90) => {
+      const response = await api.post<{
+        archived: number;
+        retention_days: number;
+      }>(`/audit/archive?retention_days=${retentionDays}`, {});
+      return response;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["audit"] });
+    },
+  });
+};
+
+export const usePurgeArchivedLogs = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const response = await api.post<{ purged: number }>("/audit/purge", {});
+      return response;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["audit"] });
+    },
   });
 };

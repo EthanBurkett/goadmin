@@ -13,6 +13,8 @@ import {
   Webhook,
   Database,
   Puzzle,
+  Activity,
+  ShieldAlert,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import {
@@ -90,6 +92,12 @@ const navigation = [
     permission: "webhooks.manage",
   },
   {
+    name: "Emergency",
+    href: "/emergency",
+    icon: ShieldAlert,
+    permission: "commands.manage",
+  },
+  {
     name: "Plugins",
     href: "/plugins",
     icon: Puzzle,
@@ -100,6 +108,12 @@ const navigation = [
     href: "/migrations",
     icon: Database,
     permission: "migrations.manage",
+  },
+  {
+    name: "Metrics",
+    href: "/metrics",
+    icon: Activity,
+    permission: null,
   },
   { name: "RBAC", href: "/rbac", icon: Shield, permission: "rbac.manage" },
 ];
@@ -134,7 +148,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   // Build nav href with current server ID
   const buildHref = (basePath: string) => {
     // Global pages that don't need server ID
-    const globalPages = ["/plugins", "/servers"];
+    const globalPages = ["/plugins", "/servers", "/metrics"];
     if (globalPages.includes(basePath)) {
       return basePath;
     }

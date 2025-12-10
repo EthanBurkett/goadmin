@@ -55,7 +55,6 @@ func (sc *StatsCollector) Stop() {
 }
 
 func (sc *StatsCollector) collectStats() {
-	logger.Debug("Collecting server stats...")
 
 	// Track server online status
 	serverOnline := true
@@ -96,8 +95,6 @@ func (sc *StatsCollector) collectStats() {
 			logger.Error(fmt.Sprintf("Failed to collect player stats: %v", err))
 		}
 	}
-
-	logger.Debug("Stats collection completed")
 }
 
 func (sc *StatsCollector) collectServerStats() error {
@@ -166,7 +163,6 @@ func (sc *StatsCollector) collectSystemStats() error {
 			if len(fields) >= 1 {
 				if used, err := strconv.ParseInt(fields[0], 10, 64); err == nil {
 					memoryUsed = used
-					logger.Debug(fmt.Sprintf("Parsed memoryUsed: %d bytes", memoryUsed))
 				} else {
 					logger.Debug(fmt.Sprintf("Failed to parse used: %v", err))
 				}

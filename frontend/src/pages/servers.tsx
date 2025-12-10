@@ -60,6 +60,7 @@ import {
   LogOut,
   Database,
   Plug,
+  Activity,
 } from "lucide-react";
 import { ServerSelector } from "@/components/ServerSelector";
 import { useAuthContext } from "@/hooks/useAuthContext";
@@ -214,6 +215,14 @@ function Servers() {
                   >
                     <Plug className="mr-2 h-4 w-4" />
                     Plugins
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start"
+                    onClick={() => navigate("/metrics")}
+                  >
+                    <Activity className="mr-2 h-4 w-4" />
+                    Metrics
                   </Button>
                 </div>
               </SidebarContent>

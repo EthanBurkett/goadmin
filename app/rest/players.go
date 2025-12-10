@@ -55,7 +55,17 @@ func getPlayers(api *Api) gin.HandlerFunc {
 			return
 		}
 
-		c.Set("data", status.Players)
+		// Filter out bots and invalid players
+		validPlayers := make([]interface{}, 0)
+		for _, player := range status.Players {
+			// Skip bots and invalid entries (ID 0, empty name, steamId "0")
+			if player.ID == 0 || player.Name == "" || player.SteamID == "0" {
+				continue
+			}
+			validPlayers = append(validPlayers, player)
+		}
+
+		c.Set("data", validPlayers)
 		c.Status(200)
 	}
 }

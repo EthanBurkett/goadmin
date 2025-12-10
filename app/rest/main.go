@@ -80,6 +80,8 @@ func New(cfg *config.Config, rconClient *rcon.Client, migrations []database.Migr
 	RegisterHealthRoutes(r, api)
 	RegisterServerRoutes(r, api)
 	RegisterPluginRoutes(r, api)
+	RegisterMetricsRoutes(r, api)
+	RegisterEmergencyRoutes(r, api)
 
 	rconClient.SendCommand("say ^5GoAdmin ^7now serving.")
 

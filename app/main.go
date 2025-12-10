@@ -14,6 +14,7 @@ import (
 	"github.com/ethanburkett/goadmin/app/commands"
 	"github.com/ethanburkett/goadmin/app/config"
 	"github.com/ethanburkett/goadmin/app/database"
+	"github.com/ethanburkett/goadmin/app/jobs"
 	"github.com/ethanburkett/goadmin/app/logger"
 	"github.com/ethanburkett/goadmin/app/models"
 	"github.com/ethanburkett/goadmin/app/parser"
@@ -24,6 +25,7 @@ import (
 	"github.com/ethanburkett/goadmin/app/webhook"
 
 	// Import plugins to register them
+	_ "github.com/ethanburkett/goadmin/plugins/examples/advanced-example"
 	_ "github.com/ethanburkett/goadmin/plugins/examples/auto-messages"
 	_ "github.com/ethanburkett/goadmin/plugins/examples/example"
 	"go.uber.org/zap"
@@ -39,6 +41,12 @@ func main() {
 	defer logger.Log.Sync()
 
 	logger.Info("GoAdmin starting...")
+
+	// Initialize emergency shutdown manager
+	models.InitEmergencyShutdown()
+
+	// Initialize audit stream manager for real-time audit log streaming
+	rest.InitAuditStreamManager()
 
 	// Initialize plugin manager
 	plugins.GlobalPluginManager = plugins.NewManager()
@@ -107,6 +115,12 @@ func main() {
 
 	// Start webhook retry worker
 	go webhook.GlobalDispatcher.StartRetryWorker()
+
+	// Start audit log archiver (default 90 day retention)
+	retentionDays := 90 // Can be made configurable via settings
+	auditArchiver := jobs.NewAuditLogArchiver(retentionDays)
+	auditArchiver.Start()
+	defer auditArchiver.Stop()
 
 	// Initialize RCON API for plugins
 	rconAPI := plugins.NewRCONAPI(rconClient)

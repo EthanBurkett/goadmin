@@ -4,6 +4,8 @@ import Index from "./src/pages/index";
 routes.push({ path: "/", element: <Index /> });
 import Login from "./src/pages/login";
 routes.push({ path: "/login", element: <Login /> });
+import Metrics from "./src/pages/metrics";
+routes.push({ path: "/metrics", element: <Metrics /> });
 import Plugins from "./src/pages/plugins";
 routes.push({ path: "/plugins", element: <Plugins /> });
 import Servers from "./src/pages/servers";
@@ -13,6 +15,7 @@ import IdAnalytics from "./src/pages/[id]/analytics";
 import IdAudit from "./src/pages/[id]/audit";
 import IdCommands from "./src/pages/[id]/commands";
 import IdConsole from "./src/pages/[id]/console";
+import IdEmergency from "./src/pages/[id]/emergency";
 import IdGroups from "./src/pages/[id]/groups";
 import IdIndex from "./src/pages/[id]/index";
 import IdMigrations from "./src/pages/[id]/migrations";
@@ -29,6 +32,7 @@ routes.push({
     { path: "audit", element: <IdAudit /> },
     { path: "commands", element: <IdCommands /> },
     { path: "console", element: <IdConsole /> },
+    { path: "emergency", element: <IdEmergency /> },
     { path: "groups", element: <IdGroups /> },
     { index: true, element: <IdIndex /> },
     { path: "migrations", element: <IdMigrations /> },

@@ -192,3 +192,102 @@ func GetRecentAuditLogs(db *gorm.DB, limit int) ([]AuditLog, error) {
 		Find(&logs).Error
 	return logs, err
 }
+
+// ArchiveOldAuditLogs moves audit logs older than the retention period to archive
+// Returns the number of logs archived and any error
+func ArchiveOldAuditLogs(db *gorm.DB, retentionDays int) (int64, error) {
+	cutoffDate := time.Now().AddDate(0, 0, -retentionDays)
+
+	// Soft delete old logs (they'll remain in DB but be excluded from queries)
+	result := db.Where("created_at < ?", cutoffDate).Delete(&AuditLog{})
+
+	return result.RowsAffected, result.Error
+}
+
+// PurgeArchivedAuditLogs permanently deletes archived (soft-deleted) logs
+// Returns the number of logs purged and any error
+func PurgeArchivedAuditLogs(db *gorm.DB) (int64, error) {
+	// Permanently delete soft-deleted logs
+	result := db.Unscoped().Where("deleted_at IS NOT NULL").Delete(&AuditLog{})
+
+	return result.RowsAffected, result.Error
+}
+
+// GetAuditLogStats returns statistics about audit logs
+func GetAuditLogStats(db *gorm.DB) (map[string]interface{}, error) {
+	stats := make(map[string]interface{})
+
+	// Total logs
+	var total int64
+	if err := db.Model(&AuditLog{}).Count(&total).Error; err != nil {
+		return nil, err
+	}
+	stats["total"] = total
+
+	// Archived logs (soft-deleted)
+	var archived int64
+	if err := db.Unscoped().Model(&AuditLog{}).Where("deleted_at IS NOT NULL").Count(&archived).Error; err != nil {
+		return nil, err
+	}
+	stats["archived"] = archived
+
+	// Logs by action type
+	var actionCounts []struct {
+		Action ActionType
+		Count  int64
+	}
+	if err := db.Model(&AuditLog{}).
+		Select("action, COUNT(*) as count").
+		Group("action").
+		Scan(&actionCounts).Error; err != nil {
+		return nil, err
+	}
+	stats["by_action"] = actionCounts
+
+	// Logs by source
+	var sourceCounts []struct {
+		Source ActionSource
+		Count  int64
+	}
+	if err := db.Model(&AuditLog{}).
+		Select("source, COUNT(*) as count").
+		Group("source").
+		Scan(&sourceCounts).Error; err != nil {
+		return nil, err
+	}
+	stats["by_source"] = sourceCounts
+
+	// Success rate
+	var successCount int64
+	if err := db.Model(&AuditLog{}).Where("success = ?", true).Count(&successCount).Error; err != nil {
+		return nil, err
+	}
+	if total > 0 {
+		stats["success_rate"] = float64(successCount) / float64(total) * 100
+	} else {
+		stats["success_rate"] = 0.0
+	}
+
+	// Oldest and newest log dates
+	var oldestStr, newestStr string
+	db.Model(&AuditLog{}).Select("MIN(created_at)").Row().Scan(&oldestStr)
+	db.Model(&AuditLog{}).Select("MAX(created_at)").Row().Scan(&newestStr)
+
+	if oldestStr != "" {
+		if oldest, err := time.Parse(time.RFC3339, oldestStr); err == nil {
+			stats["oldest_log"] = oldest
+		} else if oldest, err := time.Parse("2006-01-02 15:04:05", oldestStr); err == nil {
+			stats["oldest_log"] = oldest
+		}
+	}
+
+	if newestStr != "" {
+		if newest, err := time.Parse(time.RFC3339, newestStr); err == nil {
+			stats["newest_log"] = newest
+		} else if newest, err := time.Parse("2006-01-02 15:04:05", newestStr); err == nil {
+			stats["newest_log"] = newest
+		}
+	}
+
+	return stats, nil
+}

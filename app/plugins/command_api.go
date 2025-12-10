@@ -190,3 +190,10 @@ func (c *CommandAPIImpl) sendPlayerMessage(playerName, message string) {
 		logger.Error("Failed to send player message", zap.Error(err))
 	}
 }
+
+// GetCommandCount returns the number of registered plugin commands
+func (c *CommandAPIImpl) GetCommandCount() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return len(c.pluginCommands)
+}

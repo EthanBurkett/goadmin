@@ -72,13 +72,14 @@ if ($ImportsToAdd.Count -gt 0) {
     Write-Host ""
     
     # Find the plugin imports section in main.go
-    $ImportSectionPattern = '(?s)(// Import plugins to register them\s*\n)(\s*_\s+"[^"]+"\s*\n)*'
+    # Pattern matches from "// Import plugins" comment to the next non-plugin import
+    $ImportSectionPattern = '(?s)(// Import plugins to register them\s*\n)((?:\s*_\s+"github\.com/ethanburkett/goadmin/plugins/[^"]+"\s*\n)*)'
     
     if ($MainGoContent -match $ImportSectionPattern) {
         # Build new imports section
         $NewImports = "// Import plugins to register them`n"
         
-        # Get existing imports
+        # Get existing imports (only plugin imports)
         $ExistingImports = @()
         if ($Matches[2]) {
             $ExistingImports = ($Matches[2] -split "`n" | Where-Object { $_ -match '_\s+"([^"]+)"' } | ForEach-Object {

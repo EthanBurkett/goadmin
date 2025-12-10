@@ -90,7 +90,7 @@ func (u *User) HasRole(roleName string) bool {
 }
 
 func AddRoleToUser(userID, roleID uint) error {
-	return database.DB.Transaction(func(tx *gorm.DB) error {
+	err := database.DB.Transaction(func(tx *gorm.DB) error {
 		var user User
 		if err := tx.Preload("Roles").First(&user, userID).Error; err != nil {
 			return err
@@ -101,10 +101,12 @@ func AddRoleToUser(userID, roleID uint) error {
 		}
 		return tx.Model(&user).Association("Roles").Append(&role)
 	})
+
+	return err
 }
 
 func RemoveRoleFromUser(userID, roleID uint) error {
-	return database.DB.Transaction(func(tx *gorm.DB) error {
+	err := database.DB.Transaction(func(tx *gorm.DB) error {
 		var user User
 		if err := tx.Preload("Roles").First(&user, userID).Error; err != nil {
 			return err
@@ -115,6 +117,8 @@ func RemoveRoleFromUser(userID, roleID uint) error {
 		}
 		return tx.Model(&user).Association("Roles").Delete(&role)
 	})
+
+	return err
 }
 
 func GetAllUsers() ([]User, error) {
@@ -157,6 +161,7 @@ func DenyUser(userID uint) error {
 func DeleteUser(userID uint) error {
 	// Delete all sessions for this user first
 	database.DB.Where("user_id = ?", userID).Delete(&Session{})
+
 	// Delete the user
 	return database.DB.Delete(&User{}, userID).Error
 }

@@ -1282,13 +1282,200 @@ Both plugins showcase best practices for plugin development.
 
 ## Future Enhancements
 
-- Dependency validation
-- Version compatibility checks
-- Resource monitoring
-- UI extension points
-- Additional event types
-- Configuration UI
-- Plugin marketplace
+- ✅ **Dependency validation** - IMPLEMENTED
+- ✅ **Version compatibility checks** - IMPLEMENTED
+- ✅ **Resource monitoring** - IMPLEMENTED
+- ✅ **Hot-reload support** - IMPLEMENTED
+- [ ] UI extension points
+- [ ] Additional event types (kill/death, chat)
+- [ ] Configuration UI
+- [ ] Plugin marketplace
+
+---
+
+## 🚀 Advanced Features
+
+### Hot-Reload Support
+
+Plugins can now be reloaded without restarting the server.
+
+**API Endpoint:**
+
+```bash
+POST /plugins/:id/hot-reload
+```
+
+**Implementation:**
+
+```go
+func (p *MyPlugin) Reload() error {
+    // Reload configuration without full restart
+    config := p.ctx.ConfigAPI.GetString("setting", "default")
+    p.updateInternalState(config)
+    return nil
+}
+```
+
+**How it works:**
+
+1. Plugin stops gracefully
+2. `Reload()` method is called
+3. Plugin starts with refreshed configuration
+
+### Dependency Management
+
+Specify plugin dependencies in metadata:
+
+```go
+func (p *MyPlugin) Metadata() plugins.PluginMetadata {
+    return plugins.PluginMetadata{
+        ID: "my-plugin",
+        Dependencies: []string{"base-plugin", "utility-plugin"},
+        // ...
+    }
+}
+```
+
+**Features:**
+
+- ✅ Automatic dependency resolution
+- ✅ Circular dependency detection
+- ✅ Correct load order (topological sort)
+- ✅ Dependency tree visualization
+
+**API:**
+
+```bash
+GET /plugins/:id/dependencies
+```
+
+**Response:**
+
+```json
+{
+  "plugin_id": "my-plugin",
+  "dependency_tree": {
+    "my-plugin": ["base-plugin"],
+    "base-plugin": []
+  }
+}
+```
+
+### Semantic Versioning
+
+Specify API version requirements:
+
+```go
+func (p *MyPlugin) Metadata() plugins.PluginMetadata {
+    return plugins.PluginMetadata{
+        ID: "my-plugin",
+        Version: "2.1.0",
+        MinAPIVersion: "1.0.0",  // Minimum GoAdmin API version
+        MaxAPIVersion: "2.0.0",  // Maximum supported version
+        // ...
+    }
+}
+```
+
+**Version format:** `major.minor.patch` (e.g., `1.2.3`)
+
+**Compatibility checking:**
+
+- Validates on plugin load
+- Prevents loading incompatible plugins
+- Clear error messages
+
+**Example error:**
+
+```
+plugin my-plugin requires API version 1.0.0-2.0.0,
+but current version is 3.0.0
+```
+
+### Resource Monitoring
+
+Track and limit plugin resource usage:
+
+```go
+func (p *MyPlugin) Metadata() plugins.PluginMetadata {
+    return plugins.PluginMetadata{
+        ID: "my-plugin",
+        ResourceLimits: &plugins.ResourceLimits{
+            MaxMemoryMB:   100,              // Memory limit (MB)
+            MaxCPUPercent: 50.0,             // CPU limit (%)
+            MaxGoroutines: 50,               // Goroutine limit
+            Timeout:       30 * time.Second, // Operation timeout
+        },
+        // ...
+    }
+}
+```
+
+**Monitored metrics:**
+
+- Memory usage (MB)
+- Goroutine count
+- Violation tracking
+- Last check timestamp
+
+**API Endpoints:**
+
+```bash
+# Get metrics for specific plugin
+GET /plugins/:id/metrics
+
+# Get all plugin metrics
+GET /plugins/metrics/all
+```
+
+**Response:**
+
+```json
+{
+  "pluginId": "my-plugin",
+  "memoryUsageMB": 45.2,
+  "goroutineCount": 12,
+  "lastChecked": "2025-12-09T10:30:00Z",
+  "violationCount": 0,
+  "throttled": false
+}
+```
+
+**Monitoring:**
+
+- Default interval: 30 seconds
+- Automatic violation detection
+- Logged warnings for limit violations
+
+### Advanced Example Plugin
+
+See `plugins/examples/advanced-example/` for a complete example demonstrating:
+
+- ✅ API version constraints
+- ✅ Resource limits
+- ✅ Dependency specification
+- ✅ Hot-reload implementation
+- ✅ Event subscriptions
+- ✅ Custom commands
+- ✅ Webhook integration
+
+**Build:**
+
+```bash
+cd plugins/examples/advanced-example
+go build -buildmode=plugin -o advanced-example.so advanced.go
+```
+
+---
+
+## 🔐 Enhanced Security
+
+- ✅ Resource limits prevent runaway plugins
+- ✅ Dependency validation prevents malicious chains
+- ✅ Version checks ensure compatibility
+- ✅ All operations require permissions
+- ✅ Audit logging for plugin lifecycle
+- ✅ Resource monitoring with violation tracking
 
 ## Security
 
@@ -1296,5 +1483,20 @@ Both plugins showcase best practices for plugin development.
 - Run with GoAdmin's process permissions
 - **Only enable trusted plugins** - review code before importing
 - Use permission system to restrict capabilities
-- Monitor resource usage in production
+- Monitor resource usage in production (see Resource Monitoring)
 - Audit actions via audit log
+- Set resource limits to prevent abuse
+- Validate dependencies before loading
+- Check API version compatibility
+
+---
+
+## 📚 Additional Resources
+
+- [Advanced Features Documentation](#-advanced-features)
+- [API Reference](#-plugin-apis)
+- [Example Plugins](#-example-plugins)
+- [Best Practices](#-best-practices)
+- [Troubleshooting](#-troubleshooting)
+
+For questions or contributions, see the [main README](README.md).

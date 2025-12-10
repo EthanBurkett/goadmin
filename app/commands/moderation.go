@@ -115,6 +115,17 @@ func (ch *CommandHandler) handleTempBanCommand(ch2 *CommandHandler, playerName, 
 		return nil
 	}
 
+	// Check if command is disabled due to emergency shutdown
+	if disabled, info := models.GlobalEmergencyShutdown.IsCommandDisabled("tempban"); disabled {
+		ch.sendPlayerMessage(playerName, "^1This command is temporarily disabled")
+		ch.sendPlayerMessage(playerName, fmt.Sprintf("^1Reason: %s", info.Reason))
+		if info.AutoRenable {
+			timeRemaining := time.Until(info.ReenableAt)
+			ch.sendPlayerMessage(playerName, fmt.Sprintf("^1Re-enables in: %s", formatDuration(timeRemaining)))
+		}
+		return nil
+	}
+
 	bannedPlayerName := args[0]
 	durationStr := args[1]
 	reason := strings.Join(args[2:], " ")
@@ -164,6 +175,18 @@ func (ch *CommandHandler) handleTempBanCommand(ch2 *CommandHandler, playerName, 
 		ch.sendPlayerMessage(playerName, fmt.Sprintf("^1%s", banLoopResult.Reason))
 		logger.Info(fmt.Sprintf("[BAN LOOP DETECTED] %s (GUID: %s) - %d bans in %v",
 			bannedPlayerName, bannedGUID, banLoopResult.RecentBanCount, banLoopResult.TimeWindow))
+
+		// Trigger emergency shutdown if threshold exceeded significantly (10+ bans)
+		if banLoopResult.RecentBanCount >= 10 {
+			models.GlobalEmergencyShutdown.DisableCommand(
+				"tempban",
+				fmt.Sprintf("Ban loop abuse detected: %d bans in %v", banLoopResult.RecentBanCount, banLoopResult.TimeWindow),
+				nil,
+				30*time.Minute, // Auto-reenable after 30 minutes
+			)
+			ch.sendPlayerMessage(playerName, "^1ALERT: tempban command has been temporarily disabled due to abuse")
+			return nil
+		}
 	}
 
 	tempBan, err := models.CreateTempBan(bannedPlayerName, bannedGUID, reason, duration, nil, nil)
@@ -214,4 +237,16 @@ func (ch *CommandHandler) handleTempBanCommand(ch2 *CommandHandler, playerName, 
 	logger.Info(fmt.Sprintf("Player %s temp banned %s (GUID: %s) for %s: %s", playerName, bannedPlayerName, bannedGUID, durationStr, reason))
 
 	return nil
+}
+
+// formatDuration formats a duration into a human-readable string
+func formatDuration(d time.Duration) string {
+	if d < time.Minute {
+		return fmt.Sprintf("%ds", int(d.Seconds()))
+	} else if d < time.Hour {
+		return fmt.Sprintf("%dm", int(d.Minutes()))
+	} else if d < 24*time.Hour {
+		return fmt.Sprintf("%dh %dm", int(d.Hours()), int(d.Minutes())%60)
+	}
+	return fmt.Sprintf("%dd %dh", int(d.Hours())/24, int(d.Hours())%24)
 }

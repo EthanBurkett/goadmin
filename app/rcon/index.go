@@ -51,21 +51,29 @@ func (c *Client) SendCommand(command string) (string, error) {
 
 // SendCommandWithTimeout sends a command with a custom timeout
 func (c *Client) SendCommandWithTimeout(command string, timeout time.Duration) (string, error) {
-	if c.conn == nil {
-		return "", fmt.Errorf("not connected")
-	}
-
-	packet := fmt.Sprintf("\xFF\xFF\xFF\xFFrcon %s %s", c.Password, command)
-
-	_, err := c.conn.Write([]byte(packet))
+	// Create a fresh connection for each command to avoid stale data
+	udpAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", c.Host, c.Port))
 	if err != nil {
 		return "", err
 	}
 
-	_ = c.conn.SetReadDeadline(time.Now().Add(timeout))
+	conn, err := net.DialUDP("udp", nil, udpAddr)
+	if err != nil {
+		return "", err
+	}
+	defer conn.Close()
+
+	packet := fmt.Sprintf("\xFF\xFF\xFF\xFFrcon %s %s", c.Password, command)
+
+	_, err = conn.Write([]byte(packet))
+	if err != nil {
+		return "", err
+	}
+
+	_ = conn.SetReadDeadline(time.Now().Add(timeout))
 
 	buf := make([]byte, 4096)
-	n, _, err := c.conn.ReadFromUDP(buf)
+	n, _, err := conn.ReadFromUDP(buf)
 	if err != nil {
 		return "", err
 	}

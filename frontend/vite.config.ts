@@ -42,4 +42,14 @@ export default defineConfig({
       "@app": path.resolve(__dirname, ".."),
     },
   },
+  server: {
+    proxy: {
+      // Proxy WebSocket connections to backend
+      "/audit/stream": {
+        target: "http://localhost:8080",
+        ws: true,
+        changeOrigin: true,
+      },
+    },
+  },
 });

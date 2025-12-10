@@ -29,14 +29,25 @@ type Plugin interface {
 
 // PluginMetadata contains information about a plugin
 type PluginMetadata struct {
-	ID           string   `json:"id"`           // Unique identifier
-	Name         string   `json:"name"`         // Display name
-	Version      string   `json:"version"`      // Semantic version
-	Author       string   `json:"author"`       // Plugin author
-	Description  string   `json:"description"`  // What the plugin does
-	Website      string   `json:"website"`      // Plugin website/repo
-	Dependencies []string `json:"dependencies"` // Required plugin IDs
-	Permissions  []string `json:"permissions"`  // Required permissions
+	ID             string          `json:"id"`                       // Unique identifier
+	Name           string          `json:"name"`                     // Display name
+	Version        string          `json:"version"`                  // Semantic version
+	Author         string          `json:"author"`                   // Plugin author
+	Description    string          `json:"description"`              // What the plugin does
+	Website        string          `json:"website"`                  // Plugin website/repo
+	Dependencies   []string        `json:"dependencies"`             // Required plugin IDs
+	Permissions    []string        `json:"permissions"`              // Required permissions
+	MinAPIVersion  string          `json:"minApiVersion,omitempty"`  // Minimum GoAdmin API version required
+	MaxAPIVersion  string          `json:"maxApiVersion,omitempty"`  // Maximum GoAdmin API version supported
+	ResourceLimits *ResourceLimits `json:"resourceLimits,omitempty"` // Optional resource limits
+}
+
+// ResourceLimits defines resource constraints for a plugin
+type ResourceLimits struct {
+	MaxMemoryMB   int64         `json:"maxMemoryMb,omitempty"`   // Maximum memory in MB
+	MaxCPUPercent float64       `json:"maxCpuPercent,omitempty"` // Maximum CPU usage percentage
+	MaxGoroutines int           `json:"maxGoroutines,omitempty"` // Maximum number of goroutines
+	Timeout       time.Duration `json:"timeout,omitempty"`       // Maximum execution time for operations
 }
 
 // PluginContext provides access to GoAdmin APIs

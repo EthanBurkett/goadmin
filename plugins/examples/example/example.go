@@ -7,12 +7,10 @@ import (
 	"github.com/ethanburkett/goadmin/app/plugins"
 )
 
-// ExamplePlugin is a simple plugin demonstrating the plugin API
 type ExamplePlugin struct {
 	ctx *plugins.PluginContext
 }
 
-// Metadata returns plugin information
 func (p *ExamplePlugin) Metadata() plugins.PluginMetadata {
 	return plugins.PluginMetadata{
 		ID:           "example-plugin",
@@ -30,15 +28,12 @@ func (p *ExamplePlugin) Metadata() plugins.PluginMetadata {
 	}
 }
 
-// Init initializes the plugin
 func (p *ExamplePlugin) Init(ctx *plugins.PluginContext) error {
 	p.ctx = ctx
 	return nil
 }
 
-// Start starts the plugin
 func (p *ExamplePlugin) Start() error {
-	// Subscribe to player events if EventBus is available
 	if p.ctx.EventBus != nil {
 		if err := p.ctx.EventBus.Subscribe("player.connect", func(eventType string, data map[string]interface{}) error {
 			playerName, _ := data["playerName"].(string)
@@ -65,7 +60,6 @@ func (p *ExamplePlugin) Start() error {
 		}
 	}
 
-	// Register custom commands
 	if p.ctx.CommandAPI != nil {
 		// Example command: !hello - Sends a greeting
 		if err := p.ctx.CommandAPI.RegisterCommand(plugins.CommandDefinition{

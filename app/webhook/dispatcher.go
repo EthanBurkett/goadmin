@@ -2,6 +2,7 @@ package webhook
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -13,11 +14,13 @@ import (
 
 	"github.com/ethanburkett/goadmin/app/logger"
 	"github.com/ethanburkett/goadmin/app/models"
+	"go.uber.org/zap"
 )
 
 // Dispatcher handles webhook delivery
 type Dispatcher struct {
-	client *http.Client
+	client            *http.Client
+	middlewareManager *MiddlewareManager
 }
 
 // NewDispatcher creates a new webhook dispatcher
@@ -26,7 +29,13 @@ func NewDispatcher() *Dispatcher {
 		client: &http.Client{
 			Timeout: 10 * time.Second,
 		},
+		middlewareManager: NewMiddlewareManager(),
 	}
+}
+
+// GetMiddlewareManager returns the middleware manager for this dispatcher
+func (d *Dispatcher) GetMiddlewareManager() *MiddlewareManager {
+	return d.middlewareManager
 }
 
 // WebhookPayload represents the standard webhook payload structure
@@ -38,6 +47,15 @@ type WebhookPayload struct {
 
 // Dispatch sends a webhook for a specific event
 func (d *Dispatcher) Dispatch(event models.WebhookEvent, data map[string]interface{}) error {
+	// Process through middleware
+	ctx := context.Background()
+	shouldDispatch, transformedData := d.middlewareManager.ProcessEvent(ctx, string(event), data)
+
+	if !shouldDispatch {
+		logger.Debug("Event filtered by middleware", zap.String("event", string(event)))
+		return nil
+	}
+
 	webhooks, err := models.GetEnabledWebhooksForEvent(event)
 	if err != nil {
 		return fmt.Errorf("failed to get webhooks: %w", err)
@@ -51,7 +69,7 @@ func (d *Dispatcher) Dispatch(event models.WebhookEvent, data map[string]interfa
 	payload := WebhookPayload{
 		Event:     string(event),
 		Timestamp: time.Now(),
-		Data:      data,
+		Data:      transformedData, // Use transformed data
 	}
 
 	payloadBytes, err := json.Marshal(payload)
