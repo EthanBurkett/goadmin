@@ -93,13 +93,6 @@
 
 ### 🔌 Plugin System
 
-- **Event-Driven Architecture** - Subscribe to player events
-- **Custom Commands** - Register in-game commands with Go callbacks
-- **Full RCON Access** - Execute server commands from plugins
-- **Hot Reload** - Start, stop, reload without restart
-
-### 🔌 Plugin System
-
 - **Event-Driven Architecture** - Subscribe to player connect/disconnect events
 - **Custom Commands** - Register in-game commands with Go callbacks
 - **Full RCON Access** - Execute server commands from plugins
