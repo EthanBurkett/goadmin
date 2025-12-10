@@ -295,6 +295,9 @@ func (m *Manager) startPlugin(id string) error {
 		return fmt.Errorf("plugin not found")
 	}
 
+	// Register for resource monitoring (in case it was unregistered during stop)
+	m.resourceMonitor.RegisterPlugin(id)
+
 	// Check resource limits before starting
 	if loaded.Metadata.ResourceLimits != nil {
 		if err := m.resourceMonitor.CheckLimits(id, loaded.Metadata.ResourceLimits); err != nil {
