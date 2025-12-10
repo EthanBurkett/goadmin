@@ -33,6 +33,22 @@
 
 ![Custom Commands](images/showcase-3.png)
 
+### Group Management (B3-Style Power Groups)
+
+![Group Management](images/showcase-4.png)
+
+### Audit Logs (Administrative Action Tracking)
+
+![Audit Logs](images/showcase-5.png)
+
+### Plugin Management (Hot Reload, Resource Monitoring)
+
+![Plugin Management](images/showcase-6.png)
+
+### RBAC System (Role-Based Access Control)
+
+![RBAC System](images/showcase-7.png)
+
 </div>
 
 ---
