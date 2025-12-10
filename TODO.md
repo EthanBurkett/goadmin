@@ -534,32 +534,38 @@ This document tracks major improvements and refactoring tasks for GoAdmin.
 ### Plugin Types & Capabilities (Future Enhancements)
 
 - [x] ✅ Hot-reload support
-  - [x] ✅ HotReloader with safe stop/reload/start cycle
+  - [x] ✅ HotReloader with safe stop/reload/start cycle (app/plugins/monitoring.go - 254 lines)
   - [x] ✅ Automatic fallback on reload failure
-  - [x] ✅ POST /plugins/:id/hot-reload endpoint
-  - [x] ✅ UI with hot-reload button (Zap icon)
+  - [x] ✅ POST /plugins/:id/hot-reload endpoint (app/rest/plugins.go)
+  - [x] ✅ UI with hot-reload button (Zap icon) (frontend/src/pages/plugins.tsx)
+  - [x] ✅ useHotReloadPlugin hook with toast notifications
 - [x] ✅ Plugin dependency management (validation)
-  - [x] ✅ DependencyValidator for checking plugin dependencies
-  - [x] ✅ Circular dependency detection
-  - [x] ✅ Dependency tree visualization
-  - [x] ✅ Topological sorting for correct load order
-  - [x] ✅ GET /plugins/:id/dependencies endpoint
-  - [x] ✅ UI showing dependency tree in expandable rows
+  - [x] ✅ DependencyValidator for checking plugin dependencies (app/plugins/dependencies.go - 160 lines)
+  - [x] ✅ Circular dependency detection via buildTree recursion
+  - [x] ✅ Dependency tree visualization in UI
+  - [x] ✅ Topological sorting for correct load order (Kahn's algorithm)
+  - [x] ✅ Fixed dependency ordering to load dependencies before dependents
+  - [x] ✅ GET /plugins/:id/dependencies endpoint (app/rest/plugins.go)
+  - [x] ✅ UI showing dependency tree in expandable rows with Network icon
 - [x] ✅ Plugin versioning (compatibility checks)
-  - [x] ✅ Semantic versioning parser (major.minor.patch)
+  - [x] ✅ Semantic versioning parser (major.minor.patch) (app/plugins/versioning.go - 150 lines)
   - [x] ✅ API version compatibility validation
   - [x] ✅ Min/max API version constraints in metadata
-  - [x] ✅ Version comparison utilities
+  - [x] ✅ Version comparison utilities (Compare, GreaterThan, LessThan, Equals)
+  - [x] ✅ IsCompatible method for version range checking
 - [x] ✅ Plugin sandbox/isolation
-  - [x] ✅ Resource limits (CPU, memory, goroutines)
-  - [x] ✅ ResourceMonitor for tracking plugin resource usage
+  - [x] ✅ Resource limits (CPU, memory, goroutines) (app/plugins/plugin.go - ResourceLimits struct)
+  - [x] ✅ ResourceMonitor for tracking plugin resource usage (app/plugins/monitoring.go)
   - [x] ✅ Configurable monitoring interval (default 30s)
   - [x] ✅ Resource violation detection and logging
-  - [x] ✅ GET /plugins/:id/metrics endpoint
-  - [x] ✅ GET /plugins/metrics/all endpoint
-  - [x] ✅ UI with memory and goroutine progress bars
-  - [x] ✅ Expandable rows showing detailed resource metrics
-  - [x] ✅ Real-time metrics with 30s auto-refresh
+  - [x] ✅ Fixed lock contention issue - removed holding write lock during plugin Init()
+  - [x] ✅ Fixed metrics initialization - immediate population on register/start
+  - [x] ✅ GET /plugins/:id/metrics endpoint (app/rest/plugins.go)
+  - [x] ✅ GET /plugins/metrics/all endpoint (app/rest/plugins.go)
+  - [x] ✅ UI with memory and goroutine progress bars (frontend/src/pages/plugins.tsx)
+  - [x] ✅ Expandable rows showing detailed resource metrics with Gauge icon
+  - [x] ✅ Real-time metrics with 30s auto-refresh via useAllPluginMetrics
+  - [x] ✅ PascalCase API response format (PluginID, MemoryUsageMB, GoroutineCount, etc.)
   - [ ] Resource enforcement (auto-throttle/stop on violations)
   - [ ] API access controls beyond permissions
 - [ ] Advanced command plugins
@@ -575,6 +581,19 @@ This document tracks major improvements and refactoring tasks for GoAdmin.
   - [ ] Discord webhooks (can use WebhookAPI)
   - [ ] Slack notifications
   - [ ] External API integrations
+
+**Plugin Enhancement Files:**
+
+- `app/plugins/versioning.go` (150 lines) - Semantic version parsing and compatibility
+- `app/plugins/dependencies.go` (160 lines) - Dependency validation and topological sort
+- `app/plugins/monitoring.go` (254 lines) - Resource monitoring and hot-reload
+- `app/plugins/registry.go` (450+ lines) - Updated with fine-grained locking
+- `app/plugins/plugin.go` (190 lines) - Added ResourceLimits and API version fields
+- `app/rest/plugins.go` (280 lines) - 4 new endpoints (hot-reload, metrics, metrics/all, dependencies)
+- `frontend/src/hooks/usePlugins.ts` (220 lines) - 5 new hooks with PascalCase interfaces
+- `frontend/src/pages/plugins.tsx` (560+ lines) - Complete UI with expandable rows
+- `plugins/examples/advanced-example/advanced.go` (180 lines) - Example with all features
+- `scripts/build_plugins.ps1` (128 lines) - Fixed regex for plugin import management
 
 ### ✅ COMPLETED - Webhook System
 
